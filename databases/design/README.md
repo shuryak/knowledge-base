@@ -113,9 +113,7 @@ CREATE TABLE IF NOT EXISTS channel_subscriber (
 );
 ```
 
----
-Последняя строчка – *composite key* (*составной ключ*).
----
+> Последняя строчка – *composite key* (*составной ключ*).
 
 ## Нормализация базы данных
 
