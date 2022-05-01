@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  web:
+    links:
+      - api
+    build:
+      context: ./calculator-frontend
+      args:
+        API_HOST: 'http://localhost'
+        API_PORT: 8080
+    ports:
+      - 80:80
+  api:
+    build: ./calculator-backend
+    ports:
+      - 8080:80
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: historydb
+      DB_USER: shuryak
+      DB_PASSWORD: secret1000
+  db:
+    image: postgres:14.2-alpine
+    ports:
+      - 5432:5432
+    volumes:
+      - history:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: shuryak
+      POSTGRES_PASSWORD: secret1000
+      POSTGRES_DB: historydb
+volumes:
+  history:
