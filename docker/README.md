@@ -8,6 +8,10 @@
 
 ## Оглавление
 
+[**Docker Compose**](docker-compose.md)
+
+**Docker**:
+
 - [Docker](#docker)
   - [Источники](#источники)
   - [Оглавление](#оглавление)
@@ -47,9 +51,6 @@
     - [Docker Inspect](#docker-inspect)
     - [Логи Docker (Docker logs)](#логи-docker-docker-logs)
     - [Доступ к Bash в контейнерах](#доступ-к-bash-в-контейнерах)
-
-<small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
-
 
 ## Контейнеры и виртуальные машины
 
