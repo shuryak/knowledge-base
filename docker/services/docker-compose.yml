@@ -7,7 +7,7 @@ services:
     build:
       context: ./calculator-frontend
       args:
-        API_HOST: 'http://localhost'
+        API_HOST: http://localhost
         API_PORT: 8080
     ports:
       - 80:80
@@ -31,5 +31,6 @@ services:
       POSTGRES_USER: shuryak
       POSTGRES_PASSWORD: secret1000
       POSTGRES_DB: historydb
+
 volumes:
   history:
