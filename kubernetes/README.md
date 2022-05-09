@@ -20,6 +20,55 @@
 
 - [Mastering Kubernetes. Master k8s from A to Z](https://amigoscode.com/p/kubernetes)
 
+## Оглавление
+
+- [Kubernetes](#kubernetes)
+  - [Источники](#источники)
+  - [Оглавление](#оглавление)
+  - [Понятие кластера (Cluster)](#понятие-кластера-cluster)
+  - [Master-нода](#master-нода)
+    - [Control Plane](#control-plane)
+    - [API Server](#api-server)
+    - [Cluster Store (etcd)](#cluster-store-etcd)
+    - [Scheduler](#scheduler)
+    - [Controller Manager](#controller-manager)
+    - [Cloud Controller Manager](#cloud-controller-manager)
+    - [Подытог сведений о master-ноде](#подытог-сведений-о-master-ноде)
+  - [Worker-ноды](#worker-ноды)
+    - [Kubelet](#kubelet)
+    - [Среда выполнения контейнера (Container Runtime)](#среда-выполнения-контейнера-container-runtime)
+    - [Kube Proxy](#kube-proxy)
+  - [Запуск Kubernetes](#запуск-kubernetes)
+    - [Что значит *управляемые* **Kubernetes**](#что-значит-управляемые-kubernetes)
+      - [Пример на основе **Amazon EKS**](#пример-на-основе-amazon-eks)
+    - [Запуск кластера локально](#запуск-кластера-локально)
+  - [Minikube](#minikube)
+    - [Запуск кластера Minikube](#запуск-кластера-minikube)
+    - [Остановка кластера Minikube](#остановка-кластера-minikube)
+    - [Удаление кластера Minikube](#удаление-кластера-minikube)
+    - [Статус Minikube](#статус-minikube)
+    - [IP-адрес master-ноды Minikube](#ip-адрес-master-ноды-minikube)
+    - [Запуск Minikube с несколькими нодами](#запуск-minikube-с-несколькими-нодами)
+    - [Просмотр логов Minikube](#просмотр-логов-minikube)
+      - [Просмотр логов с текущего момента](#просмотр-логов-с-текущего-момента)
+      - [Просмотр логов определённой ноды](#просмотр-логов-определённой-ноды)
+  - [Kubectl](#kubectl)
+    - [Создание и запуск **пода** напрямую (императивный путь)](#создание-и-запуск-пода-напрямую-императивный-путь)
+    - [Запуск **пода** с помощью конфигурационного файла (декларативный путь)](#запуск-пода-с-помощью-конфигурационного-файла-декларативный-путь)
+    - [Получение списка **подов**](#получение-списка-подов)
+      - [Слежение за **подами**](#слежение-за-подами)
+      - [Получение списка всех **подов**](#получение-списка-всех-подов)
+      - [Получения списка **подов** определённого пространства имён (неймспейса)](#получения-списка-подов-определённого-пространства-имён-неймспейса)
+    - [Получение списка ***всего***](#получение-списка-всего)
+    - [Получения списка пространств имён (неймспейсов)](#получения-списка-пространств-имён-неймспейсов)
+    - [Проброс порта на хост](#проброс-порта-на-хост)
+    - [Удаление **пода**](#удаление-пода)
+    - [Исследование кластера](#исследование-кластера)
+      - [Подключение к ноде по SSH](#подключение-к-ноде-по-ssh)
+  - [**Поды** (**Pods**)](#поды-pods)
+    - [Способы создания **подов**](#способы-создания-подов)
+      - [Императивный способ](#императивный-способ)
+      - [Декларативный способ](#декларативный-способ)
 
 ## Понятие кластера (Cluster)
 
@@ -187,7 +236,7 @@ PRODUCTION!**
 
 [Документация на Minikube](https://minikube.sigs.k8s.io/docs/).
 
-### Запуск Minikube
+### Запуск кластера Minikube
 
 ```bash
 minikube start
@@ -196,6 +245,20 @@ minikube start
 Теперь мы имеем локальный кластер из одной ноды – master-ноды. Внутри находится 
 **Control Plane** со всеми компонентами, которые описаны выше. У этой ноды 
 есть [*свой IP-адрес*](#ip-адрес-master-ноды-minikube).
+
+### Остановка кластера Minikube
+
+```bash
+minikube stop
+```
+
+> Все настройки сохранятся.
+
+### Удаление кластера Minikube
+
+```bash
+minikube delete
+```
 
 ### Статус Minikube
 
@@ -229,6 +292,77 @@ kubeconfig: Configured
 minikube ip
 ```
 
+### Запуск Minikube с несколькими нодами
+
+Для начала [удалим кластер](#удаление-кластера-minikube).
+
+Напишем `minikube start --help`:
+
+```diff
+...
++ -n, --nodes=1: The number of nodes to spin up. Defaults to 1.
+...
+```
+
+Таким образом запустим кластер с двумя нодами:
+
+```bash
+minikube start --nodes=2
+```
+
+Результат `minikube status`:
+
+```diff
+minikube
++ type: Control Plane
+host: Running
+kubelet: Running
+apiserver: Running
+kubeconfig: Configured
+
+minikube-m02
++ type: Worker
+host: Running
+kubelet: Running
+```
+
+Результат [`minikube get nodes`](#исследование-кластера):
+
+```
+NAME           STATUS   ROLES                  AGE    VERSION
+minikube       Ready    control-plane,master   5m9s   v1.23.3
+minikube-m02   Ready    <none>                 3m1s   v1.23.3
+```
+
+Теперь мы имеем кластер с двумя нодами и у каждой ноды 
+[свой IP-адрес](#ip-адрес-master-ноды-minikube).
+
+### Просмотр логов Minikube
+
+Команда для получения логов master-ноды:
+
+```bash
+minikube logs
+```
+
+(получает логи **с самого запуска**, их очень много)
+
+#### Просмотр логов с текущего момента
+
+```bash
+minikube logs -f
+```
+
+#### Просмотр логов определённой ноды
+
+[Получаем список нод](#исследование-кластера).
+
+Далее к `minikube logs` добавляем параметр `--node`, например:
+
+```bash
+minikube logs --node='minikube m02' -f
+```
+
 ## Kubectl
 
 **Kubectl** – инструмент командной строки **Kubernetes**.
@@ -244,7 +378,7 @@ minikube ip
 
 **Под** (**Pod**) – набор из одного или нескольких контейнеров.
 
-### Создание и запуск пода
+### Создание и запуск **пода** напрямую (императивный путь)
 
 Создадим и запустим **под** с названием `hello-world` на основе Docker-образа 
 `amigoscode/kubernetes:hello-world`:
@@ -259,7 +393,25 @@ kubectl run hello-world --image=amigoscode/kubernetes:hello-world --port=80
 pod/hello-world created
 ```
 
+### Запуск **пода** с помощью конфигурационного файла (декларативный путь)
+
+```bash
+kubectl apply -f <путь_к_конфигурационному_файлу>
+```
+
+> Хитрый запуск через `cat`:
+> 
+> ```bash
+> cat <путь_к_конфигурационному_файлу> | kubectl apply -f -
+> ```
+
 ### Получение списка **подов**
+
+> `// TODO:`
+> - [ ] Универсально описать способы получения сущностей.
+
+Команда получения *текущих **подов*** в *текущем пространстве имён* 
+(*неймспейсе*):
 
 ```bash
 kubectl get pods
@@ -270,6 +422,86 @@ kubectl get pods
 ```
 NAME          READY   STATUS    RESTARTS   AGE
 hello-world   1/1     Running   0          79s
+```
+
+#### Слежение за **подами**
+
+Параметр `-w` позволяет получать новые состояния **подов** в реальном времени:
+
+```bash
+kubernetes get pods -w
+```
+
+#### Получение списка всех **подов**
+
+```bash
+kubectl get pods -A
+```
+
+#### Получения списка **подов** определённого пространства имён (неймспейса)
+
+```bash
+kubectl get pod -n <название_неймспейса>
+```
+
+### Получение списка ***всего***
+
+Команда для получения списка *всех* сущностей:
+
+```bash
+kubectl get all
+```
+
+Команда для получения списка *всех* сущностей *отовсюду*:
+
+```bash
+kubectl get all -A
+```
+
+Примерный результат:
+
+```
+NAMESPACE     NAME                                   READY   STATUS    RESTARTS       AGE
+kube-system   pod/coredns-64897985d-f492w            1/1     Running   3 (26h ago)    34h
+kube-system   pod/etcd-minikube                      1/1     Running   3 (26h ago)    34h
+kube-system   pod/kindnet-dplwt                      1/1     Running   3 (26h ago)    34h
+kube-system   pod/kindnet-hzskd                      1/1     Running   3 (26h ago)    34h
+kube-system   pod/kube-apiserver-minikube            1/1     Running   3 (26h ago)    34h
+kube-system   pod/kube-controller-manager-minikube   1/1     Running   3 (26h ago)    34h
+kube-system   pod/kube-proxy-bcpqc                   1/1     Running   3 (26h ago)    34h
+kube-system   pod/kube-proxy-ppgxg                   1/1     Running   3 (26h ago)    34h
+kube-system   pod/kube-scheduler-minikube            1/1     Running   3 (26h ago)    34h
+kube-system   pod/storage-provisioner                1/1     Running   10 (61s ago)   34h
+
+NAMESPACE     NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                  AGE
+default       service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP                  34h
+kube-system   service/kube-dns     ClusterIP   10.96.0.10   <none>        53/UDP,53/TCP,9153/TCP   34h
+
+NAMESPACE     NAME                        DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR
+AGE
+kube-system   daemonset.apps/kindnet      2         2         2       2            2           <none>
+34h
+kube-system   daemonset.apps/kube-proxy   2         2         2       2            2           kubernetes.io/os=linux   34h
+
+NAMESPACE     NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+kube-system   deployment.apps/coredns   1/1     1            1           34h
+
+NAMESPACE     NAME                                DESIRED   CURRENT   READY   AGE
+kube-system   replicaset.apps/coredns-64897985d   1         1         1       34h
+```
+
+> Мы получили **поды** (`pod`), **сервисы** (`service`) и другое.
+
+### Получения списка пространств имён (неймспейсов)
+
+```bash
+kubectl get namespaces
+```
+
+Или
+
+```bash
+kubectl get ns
 ```
 
 ### Проброс порта на хост
@@ -370,4 +602,96 @@ minikube ssh
 > 0c8b9902d454   k8s.gcr.io/pause:3.6   "/pause"                 48 minutes ago   Up 48 minutes             k8s_POD_etcd-minikube_kube-system_9d3d310935e5fabe942511eec3e2cd0c_1
 > 3949b6cdebe8   k8s.gcr.io/pause:3.6   "/pause"                 48 minutes ago   Up 48 minutes             k8s_POD_kube-controller-manager-minikube_kube-system_b965983ec05322d0973594a01d5e8245_1
 > b428e53a7268   k8s.gcr.io/pause:3.6   "/pause"                 48 minutes ago   Up 48 minutes             k8s_POD_kube-apiserver-minikube_kube-system_cd6e47233d36a9715b0ab9632f871843_1
+> ```
+
+## **Поды** (**Pods**)
+
+**Под** – наименьший (контейнеры такими не являются) возможный юнит для деплоя 
+(deployable) в **Kubernetes**.
+
+> Наименьший возможный юнит для деплоя (Smallest deployable unit):
+> 
+> В **Docker** – **контейнер**.
+> 
+> В **Kubernetes** – **под**.
+
+![](images/pod.png)
+
+В итоге **под** – это:
+
+- Группа из одного или более контейнеров
+- Представляет запущенный процесс
+- Разделяет одну сеть и одни Volumes
+- Не следует создавать **поды** как таковые. Для создания *следует использовать 
+  контроллеры*.
+- Недолговечный (ephemeral, эфемерный) и "одноразовый" (disposable). *Именно 
+  поэтому предыдущий пункт имеет силу*.
+
+### Способы создания **подов**
+
+Способы создания **подов**:
+
+- Императивная (<s>повелительная</s>) команда:
+  
+  > Например:
+  > 
+  > ```bash
+  > kubectl run hello-world --image=amigoscode/kubernetes:hello-world --port=80
+  > ```
+
+  Используется для изучения, устранения проблем, экспериментирования.
+- Декларативная конфигурация
+  
+  Использование конфигурационного файла.
+
+  Воспроизводимость (можно взять одну конфигурацию и применить её для различных
+  окружений). Best practices.
+
+#### Императивный способ
+
+[Создание и запуск пода с помощью Kubectl](#создание-и-запуск-пода).
+
+#### Декларативный способ
+
+Создадим каталог `pods` и внутри него в файле `pod.yml` (такое название 
+необязательно) запишем следующее:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-world
+  labels:
+    name: hello-world
+spec:
+  containers:
+  - name: hello-world
+    image: amigoscode/kubernetes:hello-world
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    ports:
+      - containerPort: 80
+```
+
+Перейдём в каталог `pods` с помощью команды `cd pods/` и выполним следующую 
+команду для запуска **пода**:
+
+```bash
+kubectl apply -f pod.yml
+```
+
+Результат `kubectl get pods`:
+
+```
+NAME          READY   STATUS    RESTARTS   AGE
+hello-world   1/1     Running   0          26s
+```
+
+> Для того, чтобы **под** работал как задумано, нужно 
+> [пробросить порты](#проброс-порта-на-хост):
+> 
+> ```bash
+> kubectl port-forward pod/hello-world 8080:80
 > ```
