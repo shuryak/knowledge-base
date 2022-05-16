@@ -64,6 +64,10 @@
       - [Выбор формата вывода](#выбор-формата-вывода)
       - [Получение полной информации](#получение-полной-информации)
     - [Получения списка пространств имён (неймспейсов)](#получения-списка-пространств-имён-неймспейсов)
+    - [Получение списка **Deployments**](#получение-списка-deployments)
+      - [Получение полной информации](#получение-полной-информации-1)
+    - [Получение списка **ReplicaSet**](#получение-списка-replicaset)
+      - [Получение полной информации](#получение-полной-информации-2)
     - [Проброс порта на хост](#проброс-порта-на-хост)
     - [Удаление **пода**](#удаление-пода)
     - [Дебаг **подов**](#дебаг-подов)
@@ -78,6 +82,12 @@
       - [Императивный способ](#императивный-способ)
       - [Декларативный способ](#декларативный-способ)
     - [Deployments](#deployments)
+    - [ReplicaSet](#replicaset)
+      - [Контуры управления (Control loops)](#контуры-управления-control-loops)
+      - [Rolling Update](#rolling-update)
+      - [Предыдущий **ReplicaSet** после *Rolling Update*](#предыдущий-replicaset-после-rolling-update)
+      - [Откат версии](#откат-версии)
+      - [Информация о ревизии (версии)](#информация-о-ревизии-версии)
 
 ## Понятие кластера (Cluster)
 
@@ -126,8 +136,8 @@
 
 ### Controller Manager
 
-**Controller Manager** – это демон, который управляет контуром управления. Это 
-контроллер контроллеров.
+**Controller Manager** – это демон, который управляет контуром управления 
+(control loop). Это *контроллер контроллеров*.
 
 > ![](images/node-controller.png)
 > 
@@ -547,6 +557,36 @@ kubectl get namespaces
 kubectl get ns
 ```
 
+### Получение списка **Deployments**
+
+```bash
+kubectl get deployments
+```
+
+#### Получение полной информации
+
+```bash
+kubectl describe deployment <название_deployment>
+```
+
+### Получение списка **ReplicaSet**
+
+```bash
+kubectl get replicaset
+```
+
+Или
+
+```bash
+kubectl get rs
+```
+
+#### Получение полной информации
+
+```bash
+kubectl describe rs <название_replicaset>
+```
+
 ### Проброс порта на хост
 
 На примере **пода** `hello-world`:
@@ -714,8 +754,8 @@ minikube ssh
 - Группа из одного или более контейнеров.
 - Представляет запущенный процесс.
 - Разделяет одну сеть и одни Volumes.
-- Не следует создавать **поды** как таковые. Для создания *следует использовать 
-  контроллеры*.
+- Не следует создавать **поды** как самостоятельные единицы. Для создания 
+  *следует использовать контроллеры*.
 - Недолговечный (ephemeral, эфемерный) и "одноразовый" (disposable). *Именно 
   поэтому предыдущий пункт имеет силу*.
 
@@ -835,4 +875,217 @@ spec:
 
 ```bash
 kubectl apply -f deployment.yml
+```
+
+### ReplicaSet
+
+**ReplicaSet** гарантирует, что необходимое число **подов** всегда запущено.
+
+> Так же как и с **подами**, никогда не следует создавать **ReplicaSet** как 
+> самостоятельные единицы. Вместо этого следует использовать **Deployments**.
+
+Создадим файл `deployment-replicas.yml` (такое название необязательно) со 
+следующим содержимым:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-world
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hello-world
+  template:
+    metadata:
+      labels:
+        app: hello-world
+    spec:
+      containers:
+      - name: hello-world
+        image: amigoscode/kubernetes:hello-world
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80
+```
+
+> Следует обратить внимание на `replicas: 3`. Это поле указывает, что 
+> **ReplicaSet** должен обеспечить запуск и работу 3-х **подов**.
+
+Применим эту конфигурацию:
+
+```bash
+kubectl apply -f deployment-replicas.yml
+```
+
+Результат `kubectl get pods`:
+
+```
+NAME                           READY   STATUS    RESTARTS   AGE
+hello-world-576c9b7fcd-4gs56   1/1     Running   0          105s
+hello-world-576c9b7fcd-9gpc8   1/1     Running   0          105s
+hello-world-576c9b7fcd-hqbwc   1/1     Running   0          105s
+```
+
+Результат `kubectl get rs`:
+
+```
+NAME                     DESIRED   CURRENT   READY   AGE
+hello-world-576c9b7fcd   3         3         3       109s
+```
+
+Результат `kubectl get deployment`:
+
+```
+NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+hello-world   3/3     3            3           12m
+```
+
+#### Контуры управления (Control loops)
+
+**ReplicaSet** реализует фоновый контур управления (control loop), который 
+проверяет, что необходимое число **подов** всегда представлено в кластере.
+
+#### Rolling Update
+
+Осуществим *Rolling Update*. Для этого создадим вторую версию нашего 
+**Deployment**.
+
+Чтобы получить новую версию достаточно поменять поле `image` в конфигурационном 
+файле **Deployment**. Например (файл `deployment-v2.yml`):
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-world
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hello-world
+  template:
+    metadata:
+      labels:
+        app: hello-world
+      annotations:
+        kubernetes.io/change-cause: "amigoscode/kubernetes:hello-world-v2"
+    spec:
+      containers:
+      - name: hello-world
+        image: amigoscode/kubernetes:hello-world-v2
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80
+```
+
+> Здесь также добавлено поле `kubernetes.io/change-cause` в `annotations`, 
+> которое описывает причину изменения. Оно может содержать *любой* текст.
+
+Применим эту конфигурацию, осуществив *Rolling Update*:
+
+```bash
+kubectl apply -f deployment-v2.yml
+```
+
+С помощью `kubectl get pods -w` можем просмотреть процесс *Rolling Update*:
+
+```
+NAME                           READY   STATUS              RESTARTS   AGE
+hello-world-576c9b7fcd-cg59z   1/1     Running             0          26s
+hello-world-576c9b7fcd-jmv8q   1/1     Running             0          26s
+hello-world-576c9b7fcd-vbjpd   1/1     Running             0          45s
+hello-world-6dd6685f99-wcz8g   0/1     ContainerCreating   0          2s
+hello-world-6dd6685f99-wcz8g   1/1     Running             0          3s
+hello-world-576c9b7fcd-cg59z   1/1     Terminating         0          28s
+hello-world-6dd6685f99-t745d   0/1     Pending             0          0s
+hello-world-6dd6685f99-t745d   0/1     Pending             0          0s
+hello-world-6dd6685f99-t745d   0/1     ContainerCreating   0          0s
+hello-world-576c9b7fcd-cg59z   0/1     Terminating         0          29s
+hello-world-576c9b7fcd-cg59z   0/1     Terminating         0          29s
+hello-world-576c9b7fcd-cg59z   0/1     Terminating         0          29s
+hello-world-6dd6685f99-t745d   1/1     Running             0          1s
+hello-world-576c9b7fcd-jmv8q   1/1     Terminating         0          29s
+hello-world-6dd6685f99-z9rdw   0/1     Pending             0          0s
+hello-world-6dd6685f99-z9rdw   0/1     Pending             0          0s
+hello-world-6dd6685f99-z9rdw   0/1     ContainerCreating   0          0s
+hello-world-576c9b7fcd-jmv8q   0/1     Terminating         0          30s
+hello-world-576c9b7fcd-jmv8q   0/1     Terminating         0          30s
+hello-world-576c9b7fcd-jmv8q   0/1     Terminating         0          30s
+hello-world-6dd6685f99-z9rdw   1/1     Running             0          2s
+hello-world-576c9b7fcd-vbjpd   1/1     Terminating         0          50s
+hello-world-576c9b7fcd-vbjpd   0/1     Terminating         0          51s
+hello-world-576c9b7fcd-vbjpd   0/1     Terminating         0          51s
+hello-world-576c9b7fcd-vbjpd   0/1     Terminating         0          51s
+```
+
+И уже результат:
+
+```
+NAME                           READY   STATUS    RESTARTS   AGE
+hello-world-6dd6685f99-t745d   1/1     Running   0          2m22s
+hello-world-6dd6685f99-wcz8g   1/1     Running   0          2m26s
+hello-world-6dd6685f99-z9rdw   1/1     Running   0          2m21s
+```
+
+Можно убедиться, что версия обновилась с помощью перенаправления портов. 
+**ТАКОЙ СПОСОБ МОЖНО ИСПОЛЬЗОВАТЬ ТОЛЬКО НА ДЕБАГЕ**:
+
+```bash
+kubectl port-forward deployment/hello-world 8080:80
+```
+
+#### Предыдущий **ReplicaSet** после *Rolling Update*
+
+*Rolling Update* оставляет предыдущий **ReplicaSet**.
+
+Результат `kubectl get rs`:
+
+```
+NAME                     DESIRED   CURRENT   READY   AGE
+hello-world-576c9b7fcd   0         0         0       20m
+hello-world-6dd6685f99   3         3         3       19m
+```
+
+Выполним следующую команду для просмотра версий **Deployment**'а под названием 
+`hello-world`:
+
+```bash
+kubectl rollout history deployment hello-world
+```
+
+Результат:
+
+```
+deployment.apps/hello-world
+REVISION  CHANGE-CAUSE
+1         <none>
+2         amigoscode/kubernetes:hello-world-v2
+```
+
+> `CHANGE-CAUSE` берётся из `annotations` **YAML**-конфигурации.
+
+#### Откат версии
+
+```bash
+kubectl rollout undo deployment hello-world --to-revision=<номер_ревизии>
+```
+
+> Если не указать номер ревизии, то откат произойдёт к предыдущей версии.
+
+> По умолчанию **Kubernetes** хранит *только 10 версий*. Но в 
+> **YAML**-конфигурации в `spec`->`revisionHistoryLimit` можно указать другое 
+> значение.
+
+#### Информация о ревизии (версии)
+
+```bash
+kubectl rollout history deployment <название_deployment> --revision=<номер_ревизии>
 ```
