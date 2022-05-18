@@ -20,6 +20,8 @@
 
 - [Mastering Kubernetes. Master k8s from A to Z](https://amigoscode.com/p/kubernetes)
 
+> [GitHub-репозиторий видеокурса](https://github.com/amigoscode/kubernetes).
+
 ## Оглавление
 
 - [Kubernetes](#kubernetes)
@@ -88,6 +90,13 @@
       - [Предыдущий **ReplicaSet** после *Rolling Update*](#предыдущий-replicaset-после-rolling-update)
       - [Откат версии](#откат-версии)
       - [Информация о ревизии (версии)](#информация-о-ревизии-версии)
+    - [Стратегии деплоя (Deployment Strategy)](#стратегии-деплоя-deployment-strategy)
+      - [Настройка Rolling Update](#настройка-rolling-update)
+      - [Пауза и продолжение Rolling Update](#пауза-и-продолжение-rolling-update)
+    - [Сервисы (Services)](#сервисы-services)
+      - [Типы сервисов](#типы-сервисов)
+      - [**ClusterIP**](#clusterip)
+      - [Пример](#пример)
 
 ## Понятие кластера (Cluster)
 
@@ -1081,7 +1090,7 @@ kubectl rollout undo deployment hello-world --to-revision=<номер_ревиз
 > Если не указать номер ревизии, то откат произойдёт к предыдущей версии.
 
 > По умолчанию **Kubernetes** хранит *только 10 версий*. Но в 
-> **YAML**-конфигурации в `spec`->`revisionHistoryLimit` можно указать другое 
+> **YAML**-конфигурации в `spec` -> `revisionHistoryLimit` можно указать другое 
 > значение.
 
 #### Информация о ревизии (версии)
@@ -1089,3 +1098,428 @@ kubectl rollout undo deployment hello-world --to-revision=<номер_ревиз
 ```bash
 kubectl rollout history deployment <название_deployment> --revision=<номер_ревизии>
 ```
+
+### Стратегии деплоя (Deployment Strategy)
+
+С помощью **Deployment** мы можем использовать следующие две стратегии:
+
+- Пересоздание (Recreate)
+  
+  Удаляет все запущенные **поды** перед созданием новой версии нашего 
+  приложения.
+
+- Rolling Update. *Предпочитаемая стратегия, используется по умолчанию*
+
+  Следит за тем, чтобы весь отправленный трафик обработался. Если с новой 
+  версией проблемы, предыдущая версия останется жить.
+
+В **YAML**-конфигурации в `spec` -> `strategy` -> `type` можно указать либо 
+`Recreate`, либо `RollingUpdate` (используется по умолчанию).
+
+#### Настройка Rolling Update
+
+Далее все настройки будут производиться в `spec` -> `strategy` -> `type` -> 
+`rollingUpdate`.
+
+- `maxUnavailable` – максимальное число **подов**, которые могут быть 
+  недоступны во время обновления. Значение может быть абсолютным числом или 
+  процентом от необходимого (`replicas`) числа **подов**.
+- `maxSurge` – максимальное число **подов**, на которое реальных подов может 
+  быть больше, чем необходимых (`replicas`).
+
+> Note: **Kubernetes** doesn't count terminating Pods when calculating the 
+> number of `availableReplicas`, which must be between 
+> `replicas - maxUnavailable` and `replicas + maxSurge`.
+> 
+> [Выдержка с официальной документации](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
+
+Пример **Deployment** с настройкой находится в 
+[`pods/deployment-v3.yml`](pods/deployment-v3.yml):
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-world
+spec:
+  replicas: 5
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: hello-world
+  template:
+    metadata:
+      labels:
+        app: hello-world
+      annotations:
+        kubernetes.io/change-cause: "amigoscode/kubernetes:hello-world-v4"
+    spec:
+      containers:
+      - name: hello-world
+        image: amigoscode/kubernetes:hello-world-v4
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80
+```
+
+> `// TODO:`
+> - [ ] В этом конспекте намеренно пропущена 3-я версия **Deployment** из 
+> видео. И поэтому в **YAML**-конфигурации используется образ 4-й версии.
+> Разобраться с этим
+
+Перейдём в каталог `pods` и применим эту конфигурацию:
+
+```bash
+kubectl apply -f deployment-v3.yml
+```
+
+Результат `kubectl rollout status deployments hello-world`:
+
+```
+Waiting for deployment "hello-world" rollout to finish: 2 out of 5 new replicas have been updated...
+Waiting for deployment "hello-world" rollout to finish: 2 out of 5 new replicas have been updated...
+Waiting for deployment "hello-world" rollout to finish: 2 out of 5 new replicas have been updated...
+Waiting for deployment "hello-world" rollout to finish: 2 out of 5 new replicas have been updated...
+Waiting for deployment "hello-world" rollout to finish: 2 out of 5 new replicas have been updated...
+Waiting for deployment "hello-world" rollout to finish: 3 out of 5 new replicas have been updated...
+Waiting for deployment "hello-world" rollout to finish: 3 out of 5 new replicas have been updated...
+Waiting for deployment "hello-world" rollout to finish: 4 out of 5 new replicas have been updated...
+Waiting for deployment "hello-world" rollout to finish: 4 out of 5 new replicas have been updated...
+Waiting for deployment "hello-world" rollout to finish: 4 out of 5 new replicas have been updated...
+Waiting for deployment "hello-world" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "hello-world" rollout to finish: 4 of 5 updated replicas are available...
+deployment "hello-world" successfully rolled out
+```
+
+Результат `kubectl get pods`:
+
+```
+NAME                           READY   STATUS    RESTARTS   AGE
+hello-world-6b7654c879-7kpdx   1/1     Running   0          97s
+hello-world-6b7654c879-cwgf8   1/1     Running   0          93s
+hello-world-6b7654c879-dmcvm   1/1     Running   0          97s
+hello-world-6b7654c879-kq7kb   1/1     Running   0          90s
+hello-world-6b7654c879-vpmzd   1/1     Running   0          93s
+```
+
+#### Пауза и продолжение Rolling Update
+
+Результат `kubectl rollout --help`:
+
+```diff
+...
+Available Commands:
+  history     View rollout history
++  pause       Mark the provided resource as paused
+  restart     Restart a resource
++  resume      Resume a paused resource
+  status      Show the status of the rollout
+  undo        Undo a previous rollout
+...
+```
+
+Если мы понимаем, что новая версия не работает, то используем команду 
+`kubectl rollout pause deployments <имя_deployment>`, фиксим и используем 
+`resume`.
+
+### Сервисы (Services)
+
+Сервисы (Services) - это то, благодаря чему *мы* можем получить доступ к нашему 
+приложению или благодаря чему *другой клиент* может обратиться к приложению или 
+*микросервис* к *микросервису*
+
+> **НАПОМИНАНИЕ!** `port-forward` используется только на этапе дебага для 
+> тестирования.
+
+Сервисы имеют собственный *стабильный* IP-адрес, *стабильное* имя **DNS**, 
+*стабильный* порт.
+
+![](images/services.png)
+
+#### Типы сервисов
+
+- **ClusterIP** (по умолчанию)
+- **NodePort**
+- **ExternalName**
+- **LoadBalancer**
+
+#### **ClusterIP**
+
+**ClusterIP** - это сервис **Kubernetes**, используемый по умолчанию.
+
+Обеспечивает *только внутренний* доступ. Не внешний!
+
+**ClusterIP** будет слать траффик к здоровым **подам**.
+
+#### Пример
+
+![](images/microservices-structure.png)
+
+В каталоге `microservices-yamls` существует файл `customer-deployment.yml`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: customer
+  template:
+    metadata:
+      labels:
+        app: customer
+    spec:
+      containers:
+      - name: customer
+        image: "amigoscode/kubernetes:customer-v1"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8080
+```
+
+Также в этом каталоге существует файл `order-deployment.yml`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order
+  template:
+    metadata:
+      labels:
+        app: order
+    spec:
+      containers:
+      - name: order
+        image: "amigoscode/kubernetes:order-v1"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8081
+```
+
+Применим эти конфигурации:
+
+```bash
+kubectl apply -f customer-deployment.yml
+```
+
+```bash
+kubectl apply -f order-deployment.yml
+```
+
+Убедиться, что микросервис запущен, можно с помощью 
+`kubectl logs <название_пода>`. Если всё прошло успешно, в логах мы увидим 
+следующее:
+
+```
+ Server Running on PORT 8080
+```
+
+(для пода из **Deployment**'а `customer`)
+
+```
+ Server Running on Port 8081
+```
+
+(для пода из **Deployment**'а `order`)
+
+Модифицированная (с использованием сервиса) **YAML**-конфигурация находится в 
+файле `order-deployment-with-service.yml`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order
+  template:
+    metadata:
+      labels:
+        app: order
+    spec:
+      containers:
+      - name: order
+        image: "amigoscode/kubernetes:order-v1"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8081
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: order
+spec:
+  type: ClusterIP
+  selector:
+    app: order # Должен совпадать с labels Deployment'а
+  ports:
+  - port: 8081 # Порт самого сервиса. Не обязательно, чтобы совпадал с портом Deployment'а
+    targetPort: 8081 # Должен совпадать с портом Deployment'а
+```
+
+![](images/service-ports.png)
+
+Применим её:
+
+```bash
+kubectl apply -f order-deployment-with-service.yml
+```
+
+Просмотрим список сервисов с помощью команды `kubectl get service`:
+
+```diff
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
++ kubernetes   ClusterIP   10.96.0.1       <none>        443/TCP    10d
+order        ClusterIP   10.98.135.178   <none>        8081/TCP   64s
+```
+
+Подробнее про наш сервис с помощью команды `kubectl describe service order`:
+
+```diff
+Name:              order
+Namespace:         default
+Labels:            <none>
+Annotations:       <none>
++ Selector:          app=order
+Type:              ClusterIP
+IP Family Policy:  SingleStack
+IP Families:       IPv4
+IP:                10.98.135.178
+IPs:               10.98.135.178
+Port:              <unset>  8081/TCP
+TargetPort:        8081/TCP
++ Endpoints:         10.244.0.15:8081,10.244.1.17:8081
+Session Affinity:  None
+Events:            <none>
+```
+
+> `Endpoints` - это список IP-адресов здоровых подов микросервиса. Микросервис 
+> и, соответственно, его **поды** ищутся через `Selector`.
+
+*Endpoints* можно также получить с помощью с `kubectl get endpoints` или 
+`kubectl get ep`.
+
+Примерный результат:
+
+```
+NAME         ENDPOINTS                           AGE
+kubernetes   192.168.49.2:8443                   10d
+order        10.244.0.15:8081,10.244.1.17:8081   8m27s
+```
+
+И, наконец, применим конфигурацию `order-deployment-80.yml`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order
+  template:
+    metadata:
+      labels:
+        app: order
+    spec:
+      containers:
+      - name: order
+        image: "amigoscode/kubernetes:order-v1"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8081
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: order
+spec:
+  type: ClusterIP
+  selector:
+    app: order
+  ports:
+  - port: 80
+    targetPort: 8081
+```
+
+И `customer-deployment-env.yml`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: customer
+  template:
+    metadata:
+      labels:
+        app: customer
+    spec:
+      containers:
+      - name: customer
+        image: "amigoscode/kubernetes:customer-v1"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        env:
+        - name: ORDER_SERVICE
+          value: "order"
+        ports:
+        - containerPort: 8080
+```
+
+И применим их:
+
+```bash
+kubectl apply -f order-deployment-80.yml
+```
+
+```bash
+kubectl apply -f customer-deployment-env.yml
+```
+
+Для проверки работоспособности можно **временно и для целей тестирования** 
+использовать `kubectl port-forward deployment/customer 8080:8080`. И затем в 
+браузере открыть 
+[`http://localhost:8080/api/v1/customer/1/orders`](http://localhost:8080/api/v1/customer/1/orders).
