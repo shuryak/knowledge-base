@@ -96,7 +96,13 @@
     - [Сервисы (Services)](#сервисы-services)
       - [Типы сервисов](#типы-сервисов)
       - [**ClusterIP**](#clusterip)
+      - [**NodePort**](#nodeport)
+        - [Пример с **NodePort**](#пример-с-nodeport)
+      - [**LoadBalancer**](#loadbalancer)
+        - [Пример с **LoadBalancer**](#пример-с-loadbalancer)
       - [Пример](#пример)
+      - [Для чего нужен сервис `kubernetes`](#для-чего-нужен-сервис-kubernetes)
+      - [Для чего нужны `labels`](#для-чего-нужны-labels)
 
 ## Понятие кластера (Cluster)
 
@@ -1251,6 +1257,9 @@ Available Commands:
 - **ExternalName**
 - **LoadBalancer**
 
+> Для **NodePort** и **LoadBalancer**: 
+> [Minikube accessing apps](https://minikube.sigs.k8s.io/docs/handbook/accessing/).
+
 #### **ClusterIP**
 
 **ClusterIP** - это сервис **Kubernetes**, используемый по умолчанию.
@@ -1258,6 +1267,308 @@ Available Commands:
 Обеспечивает *только внутренний* доступ. Не внешний!
 
 **ClusterIP** будет слать траффик к здоровым **подам**.
+
+#### **NodePort**
+
+**NodePort** позволяет открыть порт на всех нодах в диапазоне от `30000` до
+`32767`.
+
+Если явно не указать требуемый `nodePort`, выберется случайное значение из 
+этого диапазона.
+
+![](images/nodeport.png)
+
+![](images/nodeport-configuration.png)
+
+Недостатки **NodePort**:
+
+- Один сервис на порт
+- Если IP-адрес ноды меняется, это становится для нас проблемой
+
+##### Пример с **NodePort**
+
+В каталоге `microservices-yamls` есть файл 
+`customer-deployment-env-with-service.yml` со следующим содержимым:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: customer
+  template:
+    metadata:
+      labels:
+        app: customer
+    spec:
+      containers:
+      - name: customer
+        image: "amigoscode/kubernetes:customer-v1"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        env:
+        - name: ORDER_SERVICE
+          value: "order"
+        ports:
+        - containerPort: 8080
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-node
+spec:
+  type: NodePort
+  selector:
+    app: customer
+  ports:
+  - port: 80
+    targetPort: 8080
+    nodePort: 30000
+```
+
+Применим эту конфигурацию
+
+```bash
+kubectl apply -f customer-deployment-env-with-service.yml
+```
+
+Результат `kubectl get services`:
+
+```diff
+NAME            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
++ customer-node   NodePort    10.102.81.15    <none>        80:30000/TCP   9s
+kubernetes      ClusterIP   10.96.0.1       <none>        443/TCP        11d
+order           ClusterIP   10.98.135.178   <none>        80/TCP         23h
+```
+
+> Так как ноды мы создавали с помощью **Minikube**, посмотрим их IP-адреса:
+> 
+> - Список нод:
+>   
+>   ```bash
+>   kubectl get nodes
+>   ```
+>   
+>   Результат:
+>   
+>   ```
+>   NAME           STATUS   ROLES                  AGE   VERSION
+>   minikube       Ready    control-plane,master   11d   v1.23.3
+>   minikube-m02   Ready    <none>                 31m   v1.23.3
+>   ```
+> 
+> - IP-адрес `minikube`:
+>   
+>   ```bash
+>   minikube ip -n minikube
+>   ```
+> 
+>   Результат:
+>   
+>   ```
+>   192.168.49.2
+>   ```
+> 
+> - IP-адрес `minikube-m02`:
+>   
+>   ```bash
+>   minikube ip -n minikube-m02
+>   ```
+> 
+>   Результат:
+>   
+>   ```
+>   192.168.49.3
+>   ```
+> 
+> Получим доступ к SSH основной ноды **Minikube**:
+> 
+> ```bash
+> minikube ssh
+> ```
+> 
+> И внутри попробуем выполнить команду `curl localhost:30000/api/v1/customer`.
+
+Откроем туннель для нашего сервиса:
+
+```bash
+minikube service customer-node --url
+```
+
+Результат:
+
+```http://192.168.49.2:30000
+🏃  Starting tunnel for service customer-node.
+❗  Because you are using a Docker driver on linux, the terminal needs to be open to run it.
+```
+
+#### **LoadBalancer**
+
+**LoadBalancer** — стандартный путь опубликовывать приложения в интернете.
+
+Он создаёт балансировщик нагрузки **на один сервис** (**per service**).
+
+> На **AWS**, на **GCP** и на других облачных платформах - сетевой 
+> балансировщик нагрузки (Network Load Balancer, **NLB**).
+> 
+> Сетевой балансировщик нагрузки на примере **GCP**:
+> 
+> ![](images/gcp-nlb.png)
+
+##### Пример с **LoadBalancer**
+
+![](images/load-balanced-structure.png)
+
+В каталоге `microservice-yamls/load-balanced` есть конфигурация `frontend.yml`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: amigoscode/kubernetes:frontend-v1
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+  ports:
+  - port: 80
+    targetPort: 80
+```
+
+> Следует обратить внимание на `nginx.conf` 
+> (`microservices/frontend/nginx.conf`):
+> 
+> ```nginx
+> upstream customer {
+>     server customer;
+> }
+> ```
+> 
+> Здесь `customer` - это IP-адрес **ClusterIP**.
+
+Также в этом каталоге существует файл `customer-deployment.yml`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: customer
+  template:
+    metadata:
+      labels:
+        app: customer
+    spec:
+      containers:
+      - name: customer
+        image: "amigoscode/kubernetes:customer-v1"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        env:
+        - name: ORDER_SERVICE
+          value: "order"
+        ports:
+        - containerPort: 8080
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-node
+spec:
+  type: NodePort
+  selector:
+    app: customer
+  ports:
+  - port: 80
+    targetPort: 8080
+    nodePort: 30000
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer
+spec:
+  type: ClusterIP
+  selector:
+    app: customer
+  ports:
+  - port: 80
+    targetPort: 8080
+```
+
+Применим эти конфигурации:
+
+```bash
+kubectl apply -f customer-deployment.yml
+```
+
+```bash
+kubectl apply -f frontend.yml
+```
+
+Результат команды `kubectl get svc` (`kubectl get services`):
+
+```diff
+NAME            TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+customer        ClusterIP      10.97.189.160   <none>        80/TCP         2m26s
+customer-node   NodePort       10.102.81.15    <none>        80:30000/TCP   26h
++ frontend        LoadBalancer   10.103.32.163   <pending>     80:32163/TCP   2m21s
+kubernetes      ClusterIP      10.96.0.1       <none>        443/TCP        12d
+order           ClusterIP      10.98.135.178   <none>        80/TCP         2d1h
+```
+
+> Чтобы получить `EXTERNAL-IP` для `frontend` (сейчас там `<pending>`), нужно 
+> запустить `minikube tunnel`.
+> 
+> Можно открыть два окна терминала и в одном выполнять `kubectl get svc -w`, а 
+> в другом — `minikube tunnel` и так мы увидим назначение `EXTERNAL-IP`.
+> 
+> После выполнения `minikube tunnel` назначится `EXTERNAL-IP` `127.0.0.1`. 
+> Можно открыть в браузере.
 
 #### Пример
 
@@ -1523,3 +1834,80 @@ kubectl apply -f customer-deployment-env.yml
 использовать `kubectl port-forward deployment/customer 8080:8080`. И затем в 
 браузере открыть 
 [`http://localhost:8080/api/v1/customer/1/orders`](http://localhost:8080/api/v1/customer/1/orders).
+
+> `// TODO:`
+> - [ ] Разобраться с хранением **YAML**-конфигураций.
+
+#### Для чего нужен сервис `kubernetes`
+
+`kubectl get svc` (`kubectl get services`):
+
+```diff
+NAME            TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+customer        ClusterIP      10.97.189.160   <none>        80/TCP         16m
+customer-node   NodePort       10.102.81.15    <none>        80:30000/TCP   26h
+frontend        LoadBalancer   10.103.32.163   127.0.0.1     80:32163/TCP   16m
++ kubernetes      ClusterIP      10.96.0.1       <none>        443/TCP        12d
+order           ClusterIP      10.98.135.178   <none>        80/TCP         2d2h
+```
+
+`kubectl get ep` (`kubectl get endpoints`):
+
+```diff
+NAME            ENDPOINTS                          AGE
+customer        10.244.0.13:8080,10.244.1.3:8080   17m
+customer-node   10.244.0.13:8080,10.244.1.3:8080   26h
+frontend        10.244.0.14:80,10.244.1.4:80       17m
++ kubernetes      192.168.49.2:8443                  12d
+order           10.244.0.10:8081,10.244.0.4:8081   2d2h
+```
+
+IP-адрес эндпоинта: `192.168.49.2`, порт: `8443`.
+
+Теперь `kubectl get pods -A` (флаг `-A` говорит выводить *все* поды):
+
+```diff
+...
++ kube-system   kube-apiserver-minikube            1/1     Running   10 (139m ago)   12d
+...
+```
+
+`kubectl describe pod kube-apiserver-minikube -n kube-system`:
+
+```diff
+...
++ IP:                   192.168.49.2
+IPs:
+  IP:           192.168.49.2
+...
++      --secure-port=8443
+...
+```
+
+> Сервис `kubernetes` предоставляет возможность общаться с API **Kubernetes** 
+> через **API Server**.
+
+#### Для чего нужны `labels`
+
+`labels` — это записи типа *ключ-значение*, которые мы можем придавать объектам 
+**Kubernetes** (например, ***поды***, *сервисы*, *ReplicaSet'ы* и т.д.).
+
+Они используются, чтобы организовать и выделять объекты.
+
+Команда для получения `labels` **подов**:
+
+```bash
+kubectl get pods --show-labels
+```
+
+> Вот эта часть **YAML**-конфигурации, например, для "прицеливания" 
+> *ReplicaSet*:
+> 
+> ```yaml
+> ...
+> replicas: 2
+> selector:
+>   matchLabels:
+>     app: customer
+> ...
+> ```
