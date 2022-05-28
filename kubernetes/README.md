@@ -70,6 +70,8 @@
       - [Получение полной информации](#получение-полной-информации-1)
     - [Получение списка **ReplicaSet**](#получение-списка-replicaset)
       - [Получение полной информации](#получение-полной-информации-2)
+    - [Получение по Label selectors](#получение-по-label-selectors)
+      - [Получение по Label selectors с помощью специального синтаксиса](#получение-по-label-selectors-с-помощью-специального-синтаксиса)
     - [Проброс порта на хост](#проброс-порта-на-хост)
     - [Удаление **пода**](#удаление-пода)
     - [Дебаг **подов**](#дебаг-подов)
@@ -103,6 +105,13 @@
       - [Пример](#пример)
       - [Для чего нужен сервис `kubernetes`](#для-чего-нужен-сервис-kubernetes)
       - [Для чего нужны `labels`](#для-чего-нужны-labels)
+        - [Label selectors](#label-selectors)
+      - [Аннотации](#аннотации)
+      - [**Service Discovery** (**Обнаружение сервисов**)](#service-discovery-обнаружение-сервисов)
+        - [Регистрация сервисов](#регистрация-сервисов)
+      - [Endpoints](#endpoints)
+      - [**KubeProxy**](#kubeproxy)
+      - [Storage (хранилища) и Volumes (тома)](#storage-хранилища-и-volumes-тома)
 
 ## Понятие кластера (Cluster)
 
@@ -601,6 +610,26 @@ kubectl get rs
 ```bash
 kubectl describe rs <название_replicaset>
 ```
+
+### Получение по Label selectors
+
+```bash
+kubectl get <объект_kubernetes> --selector="<название_селектора>=<значение>,..."
+```
+
+Или
+
+```bash
+kubectl get <объект_kubernetes> -l <название_селектора>=<значение>,...
+```
+
+#### Получение по Label selectors с помощью специального синтаксиса
+
+```bash
+kubectl get <объект_kubernetes> -l '<название_селектора> in (<возможное_значение_1>, <..._2>, ..., <...n>), <другие_селекторы_по_аналогии>'
+```
+
+> Наряду c `in` можно использовать `notin`.
 
 ### Проброс порта на хост
 
@@ -1911,3 +1940,131 @@ kubectl get pods --show-labels
 >     app: customer
 > ...
 > ```
+
+##### Label selectors
+
+*Label selectors* нужны, чтобы наполнить объект **Kubernetes** набором 
+`labels`.
+
+> Селекторы работают по принципу "всё или ничего". Все селекторы должны 
+> совпадать для сопоставления одного объекта **Kubernetes** с другим.
+
+#### Аннотации
+
+*Аннотации* — это неструктурированные записи типа "ключ-значение" для хранения 
+и получения различных метаданных.
+
+Аннотации не предназначены для запросов (querying).
+
+Цель аннотаций заключается в том, чтобы помогать инструментам и библиотекам 
+работать с нашими объектами **Kubernetes**.
+
+> Например, их можно использовать для того, чтобы передавать конфигурацию между 
+> системами.
+
+#### **Service Discovery** (**Обнаружение сервисов**)
+
+**Service Discovery** (**Обнаружение сервисов**) — механизм для приложений и 
+микросервисов по обнаружению друг друга в сети.
+
+[Что такое DNS? (What is DNS?) — объяснение на Cloudflare](https://www.cloudflare.com/learning/dns/what-is-dns/).
+
+##### Регистрация сервисов
+
+![](images/service-registration.png)
+
+Всю магию за нас делает [**CoreDNS**](https://coredns.io/).
+
+> Получение **подов** из неймспейса `kube-system` с помощью 
+> `kubectl get pods -n kube-system`:
+> 
+> ```diff
+> NAME                               READY   STATUS    RESTARTS       AGE
+> + coredns-64897985d-f492w            1/1     Running   11 (47m ago)   19d
+> etcd-minikube                      1/1     Running   11 (47m ago)   19d
+> kindnet-dplwt                      1/1     Running   11 (47m ago)   19d
+> ...
+> ```
+
+> `kubectl get service -n kube-system`:
+> 
+> ```
+> NAME       TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                  AGE
+> kube-dns   ClusterIP   10.96.0.10   <none>        53/UDP,53/TCP,9153/TCP
+> ```
+> 
+> Следует обратить внимание на `CLUSTER-IP`: `10.96.0.10`
+> 
+> `kubectl exec -it <любой_под> -- sh`, затем в **sh**-оболочке 
+> `cat /etc/resolv.conf`:
+> 
+> ```diff
+> + nameserver 10.96.0.10
+> search default.svc.cluster.local svc.cluster.local cluster.local
+> options ndots:5
+> ```
+> 
+> (Файл [`resolv.conf`](https://en.wikipedia.org/wiki/Resolv.conf) представлен 
+> в *каждом* отдельном **поде**).
+
+> Ещё, например, `nslookup customer` покажет следующее:
+> 
+> ```diff
+> + Server:         10.96.0.10
+> Address:        10.96.0.10#53
+> 
+> + Name:   customer.default.svc.cluster.local
+> + Address: 10.97.189.160
+> ```
+> 
+> Поле `Name` отображает длинное имя. Оно работает как и короткое — `customer`:
+> 
+> `curl http://customer.default.svc.cluster.local/api/v1/customer`:
+> 
+> (`default` здесь обозначает неймспейс).
+> 
+> ```json
+> [{"id":1,"name":"James","address":"UK","gender":"M"},
+> {"id":2,"name":"Jamila","address":"US","gender":"F"},
+> {"id":3,"name":"Bilal","address":"ES","gender":"M"}]
+> ```
+> 
+> **Примечание**: если `nslookup` не установлен, следует выполнить следующую 
+> команду для установки:
+> 
+> ```bash
+> apt install dnsutils
+> ```
+
+#### Endpoints
+
+![](images/endpoints.png)
+
+#### **KubeProxy**
+
+**KubeProxy** – это сетевой прокси, запускающийся на каждой ноде. Реализует 
+часть сервиса **Kubernetes**.
+
+**KubeProxy** утверждает правила для разрешения коммуникации **подов** изнутри 
+и снаружи кластера.
+
+Реализует контроллер, который смотрит за новыми сервисами и эндпоинтами 
+(Endpoint) через **API Server** 
+
+Создаёт локальные **IPVS** правила, которые сообщают ноде, чтобы она 
+перехватывала трафик, направленный к **ClusterIP** сервиса.
+
+> **IPVS** (**IP** **V**irtual **S**erver) – виртуальный IP-сервер, построенный 
+> поверх [netfilter](https://ru.wikipedia.org/wiki/Netfilter) и реализующий 
+> транспортный уровень балансировки нагрузки как часть ядра Linux.
+
+**KubeProxy** перенаправляет трафик к **подам**, которые совпадают по *Label 
+selectors*.
+
+#### Storage (хранилища) и Volumes (тома)
+
+Т.к. **поды** недолговечны и эфемерны, вся информация удаляется, когда 
+контейнер **пода** перезагружается.
+
+Иногда нам нужно сохранять данные: разделять их между **подами** или оставлять 
+на диске.
