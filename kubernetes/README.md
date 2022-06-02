@@ -112,6 +112,12 @@
       - [Endpoints](#endpoints)
       - [**KubeProxy**](#kubeproxy)
       - [Storage (хранилища) и Volumes (тома)](#storage-хранилища-и-volumes-тома)
+        - [Volume: EmptyDir](#volume-emptydir)
+        - [Volume: HostPath](#volume-hostpath)
+        - [Другие Volumes](#другие-volumes)
+        - [Персистентные тома (Persistent Volumes)](#персистентные-тома-persistent-volumes)
+        - [PersistentVolume Subsystem](#persistentvolume-subsystem)
+      - [ConfigMaps](#configmaps)
 
 ## Понятие кластера (Cluster)
 
@@ -2068,3 +2074,472 @@ selectors*.
 
 Иногда нам нужно сохранять данные: разделять их между **подами** или оставлять 
 на диске.
+
+##### Volume: EmptyDir
+
+**Volume: EmptyDir** – это временная директория, существующая на протяжении 
+времени жизни **пода**.
+
+Сразу после инициализации они пустые.
+
+Используются, чтобы делиться данными между контейнерами в **поде**.
+
+В каталоге `microservices-yamls` существует файл `empty-dir-volume.yml` со 
+следующим содержимым:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emptydir-volume
+spec:
+  selector:
+    matchLabels:
+      app: emptydir-volume
+  template:
+    metadata:
+      labels:
+        app: emptydir-volume
+    spec:
+      volumes:
+        - name: cache
+          emptyDir: {}
+      containers:
+      - name: one
+        image: busybox
+        command:
+          - "/bin/sh"
+        args:
+          - "-c"
+          - "touch /foo/bar.txt && sleep 3600"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        volumeMounts:
+          - name: cache
+            mountPath: /foo
+      - name: two
+        image: busybox
+        command:
+          - "sleep"
+          - "3600"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        volumeMounts:
+          - name: cache
+            mountPath: /foo
+```
+
+Эта конфигурация создаёт два контейнера, которые будут жить по одному часу 
+(`sleep 3600`, иначе **Deployment** уйдёт в `CrashLoopBackOff`) и **EmptyDir** 
+для них. Применим эту конфигурации с помощью следующей команды:
+
+```bash
+kubectl apply -f empty-dir-volume.yml
+```
+
+Результат `kubectl get pods`:
+
+```diff
+NAME                               READY   STATUS    RESTARTS      AGE
+...
++ emptydir-volume-65fd6c589d-zwljn   2/2     Running   0             6m8s
+...
+```
+
+Зайдём в `sh`-оболочку контейнера `one` с помощью команды 
+`kubectl exec -it emptydir-volume-65fd6c589d-zwljn -c one -- sh` и выполним там 
+следующую команду:
+
+```bash
+ls /foo
+```
+
+Результат:
+
+```
+bar.txt
+```
+
+То же самое сделаем для контейнера `two` и убедимся, что файл `bar.txt` тоже 
+присутствует в директории `foo` – это один и тот же файл, доступ к которому 
+имеют оба контейнера. Изменения, осуществлённые в одном контейнера, будут 
+отображаться в другом.
+
+Но если мы удалим **под** `emptydir-volume-65fd6c589d-zwljn` 
+(НЕ **Deployment**, а именно `pod/emptydir-volume-65fd6c589d-zwljn`), то новый  
+**под** создастся и все изменения в **EmptyDir** исчезнут.
+
+##### Volume: HostPath
+
+**Volume: HostPath** используется, когда нужно, чтобы приложение имело доступ 
+к файловой системе хоста.
+
+Это очень *опасно* и рекомендуется создавать такой Volume *только для чтения*.
+
+- Кейс использования:
+
+  `minikube ssh`:
+
+  ```
+  cd /var/log/
+  ```
+
+  Мы хотим смонтировать директорию `/var/log/` с логами в файловую систему 
+  хоста.
+
+  В директории `microservices-yamls` существует конфигурация 
+  [`host-path-volume.yml`](microservices-yamls/host-path-volume.yml):
+
+  ```yaml
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: hostpath
+  spec:
+    selector:
+      matchLabels:
+        app: hostpath
+    template:
+      metadata:
+        labels:
+          app: hostpath
+      spec:
+        volumes:
+        - name: var-log
+          hostPath:
+            path: /var/log
+        containers:
+        - name: hostpath
+          volumeMounts:
+            - mountPath: /var/log
+              name: var-log
+          image: busybox
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          command:
+            - "sleep"
+            - "3600"
+  ```
+
+  > В конфигурацию в `spec`->`containers`->`volumeMounts` можно добавить флаг 
+  > `readOnly: true` для режима "только для чтения".
+
+  Применим её с помощью следующей команды:
+
+  ```bash
+  kubectl apply -f host-path-volume.yml
+  ```
+
+##### Другие Volumes
+
+[Подробнее о Volumes на сайте **Kubernetes**](https://kubernetes.io/docs/concepts/storage/volumes/).
+
+##### Персистентные тома (Persistent Volumes)
+
+**Персистентные Volumes** позволяют хранить данные вне жизненного цикла 
+**пода**.
+
+Это означает, что если **под** падает, умирает, перемещается в другую ноду, это 
+не влияет на хранимые данные.
+
+**Kubernetes** поддерживает различные персистентные Volumes такие как:
+
+- **NFS**
+- **Local**
+- **Cloud Network Storage** (если мы запускаем на облаке)
+
+Типы **PersistentVolume** реализуются как плагины. **Kubernetes** на текущий 
+момент поддерживает следующие плагины: 
+[подробнее на сайте **Kubernetes**.](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#types-of-persistent-volumes)
+
+![](images/persistent-volumes.png)
+
+##### PersistentVolume Subsystem
+
+**PersistentVolume subsystem** предоставляет API для пользователей и 
+администраторов, которые абстрагируют детали о том, как хранилище 
+предоставляется, от того, как оно используется. Используются 
+**PersistentVolume** и **PersistentVolumeClaim**.
+
+![](images/persistent-volume-subsystem.png)
+
+**PersistentVolume** — это ресурс хранилища, обеспеченный администратором.
+
+**PersistentVolumeClaim** — это запрос пользователя и требования к 
+персистентному Volume.
+
+**StorageClass** описывает параметры для класса хранилища, которыми 
+**PersistentVolume** может быть динамически обеспечен.
+
+- Пример:
+
+  - `minikube ssh`:
+
+    ```bash
+    sudo mkdir /mnt/data
+    ```
+
+    ```bash
+    sudo sh -c "echo 'Hello PV & PVC - Kubernetes' > /mnt/data/index.html"
+    ```
+
+  - `minikube ssh -n minikube-m02`:
+
+    ```bash
+    sudo mkdir /mnt/data
+    ```
+
+    ```bash
+    sudo sh -c "echo 'Hello PV & PVC - Kubernetes' > /mnt/data/index.html"
+    ```
+
+  В директории `microservices-yamls` существует конфигурация 
+  [`pv-pvc.yml`](microservices-yamls/pv-pvc.yml):
+
+  ```yaml
+  apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    name: mypv
+  spec:
+    capacity:
+      storage: "100Mi"
+    volumeMode: Filesystem
+    accessModes:
+      - ReadWriteOnce
+    persistentVolumeReclaimPolicy: Recycle
+    storageClassName: manual
+    hostPath:
+      path: "/mnt/data"
+
+  ---
+
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: mypvc
+  spec:
+    resources:
+      requests:
+        storage: "100Mi"
+    volumeMode: Filesystem
+    storageClassName: "manual"
+    accessModes:
+      - ReadWriteOnce
+
+  ---
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: pv-pvc
+  spec:
+    selector:
+      matchLabels:
+        app: pv-pvc
+    template:
+      metadata:
+        labels:
+          app: pv-pvc
+      spec:
+        volumes:
+          - name: data
+            persistentVolumeClaim:
+              claimName: mypvc
+        containers:
+        - name: pv-pvc
+          image: nginx
+          volumeMounts:
+            - mountPath: "/usr/share/nginx/html"
+              name: data
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+          - containerPort: 80
+
+  ---
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: pv-pvc
+  spec:
+    type: LoadBalancer
+    selector:
+      app: pv-pvc
+    ports:
+    - port: 80
+      targetPort: 80
+  ```
+
+  Применим эту конфигурацию с помощью следующей команды:
+
+  ```bash
+  kubectl apply -f pv-pvc.yml
+  ```
+
+  - `kubectl get pv`:
+
+    ```
+    NAME   CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM           STORAGECLASS   REASON   AGE
+    mypv   100Mi      RWO            Recycle          Bound    default/mypvc   manual                  2m33s
+    ```
+
+  - `kubectl describe pv mypv`:
+
+    ```
+    Name:            mypv
+    Labels:          <none>
+    Annotations:     pv.kubernetes.io/bound-by-controller: yes
+    Finalizers:      [kubernetes.io/pv-protection]
+    StorageClass:    manual
+    Status:          Bound
+    Claim:           default/mypvc
+    Reclaim Policy:  Recycle
+    Access Modes:    RWO
+    VolumeMode:      Filesystem
+    Capacity:        100Mi
+    Node Affinity:   <none>
+    Message:
+    Source:
+        Type:          HostPath (bare host directory volume)
+        Path:          /mnt/data
+        HostPathType:
+    Events:            <none>
+    ```
+
+  - `kubectl get pvc`:
+
+    ```
+    NAME    STATUS   VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+    mypvc   Bound    mypv     100Mi      RWO            manual         2m51s
+    ```
+
+  - `kubectl describe pvc mypvc`:
+
+    ```
+    Name:          mypvc
+    Namespace:     default
+    StorageClass:  manual
+    Status:        Bound
+    Volume:        mypv
+    Labels:        <none>
+    Annotations:   pv.kubernetes.io/bind-completed: yes
+                  pv.kubernetes.io/bound-by-controller: yes
+    Finalizers:    [kubernetes.io/pvc-protection]
+    Capacity:      100Mi
+    Access Modes:  RWO
+    VolumeMode:    Filesystem
+    Used By:       pv-pvc-6cbd59d977-pf4sn
+    Events:
+      Type     Reason              Age   From                         Message
+      ----     ------              ----  ----                         -------
+      Warning  ProvisioningFailed  5m1s  persistentvolume-controller  storageclass.storage.k8s.io "manual" not found
+    ```
+
+    > `// TODO:`
+    > - [ ] Разобраться с `Warning` в `Events`.
+
+  ---
+
+  `kubectl get pods`:
+
+  ```diff
+  NAME                               READY   STATUS    RESTARTS        AGE
+  ...
+  + pv-pvc-6cbd59d977-pf4sn            1/1     Running   0               7m6s
+  ...
+  ```
+
+  `kubectl exec -it pv-pvc-6cbd59d977-pf4sn  -- sh`,
+  `cat /usr/share/nginx/html/index.html`:
+
+  ```
+  Hello PV & PVC - Kubernetes
+  ```
+
+  Выполним `minikube tunnel`, откроем в браузере 
+  [`http://localhost:80](http://localhost:80) и увидим следующее:
+
+  ```
+  Hello PV & PVC - Kubernetes
+  ```
+
+#### ConfigMaps
+
+Образы контейнеров должны поддерживать повторное использование.
+
+Один и тот же образ следует использовать для разработки, тестирования, 
+стейджинга и продакшена.
+
+**ConfigMaps**:
+
+- Позволяет хранить конфигурацию
+- Представляет собой набор пар "*ключ-значение*".
+
+В директории `microservices-yamls` существует конфигурация 
+[`config-maps.yml`](microservices-yamls/config-maps.yml):
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-properties
+data:
+  app-name: order
+  app-version: 1.0.0
+  team: engineering
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+data:
+  default.conf: |
+    server {
+      listen 80;
+      server_name localhost;
+
+      location / {
+        root /usr/share/nginx/html;
+        index index.html index.htm;
+      }
+
+      error_page 500 502 503 504 /50x.html;
+      location - /50x.html {
+        root /usr/share/nginx/html;
+      }
+
+      location /health {
+        access_log off;
+        return 200 "healthy\n";
+      }
+    }
+```
+
+Применим эту конфигурацию с помощью следующей команды:
+
+```bash
+kubectl apply -f config-maps.yml
+```
+
+`kubectl get cm`:
+
+```
+NAME               DATA   AGE
+app-properties     3      7s
+kube-root-ca.crt   1      25d
+nginx-conf         1      7s
+```
+
+Для каждого **ConfigMap** можно сделать `describe`.
