@@ -72,6 +72,8 @@
       - [Получение полной информации](#получение-полной-информации-2)
     - [Получение по Label selectors](#получение-по-label-selectors)
       - [Получение по Label selectors с помощью специального синтаксиса](#получение-по-label-selectors-с-помощью-специального-синтаксиса)
+    - [Императивное создание **ConfigMap**](#императивное-создание-configmap)
+    - [Императивное создание **Secret**](#императивное-создание-secret)
     - [Проброс порта на хост](#проброс-порта-на-хост)
     - [Удаление **пода**](#удаление-пода)
     - [Дебаг **подов**](#дебаг-подов)
@@ -117,7 +119,11 @@
         - [Другие Volumes](#другие-volumes)
         - [Персистентные тома (Persistent Volumes)](#персистентные-тома-persistent-volumes)
         - [PersistentVolume Subsystem](#persistentvolume-subsystem)
-      - [ConfigMaps](#configmaps)
+      - [**ConfigMaps**](#configmaps)
+        - [Инъекция **ConfigMaps** в **поды**](#инъекция-configmaps-в-поды)
+      - [**Secrets** (**Секреты**)](#secrets-секреты)
+        - [Типы **Secrets**](#типы-secrets)
+        - [Пуллинг приватного образа Docker](#пуллинг-приватного-образа-docker)
 
 ## Понятие кластера (Cluster)
 
@@ -636,6 +642,70 @@ kubectl get <объект_kubernetes> -l '<название_селектора> 
 ```
 
 > Наряду c `in` можно использовать `notin`.
+
+### Императивное создание **ConfigMap**
+
+Получить помощь можно с помощью следующей команды:
+
+```bash
+kubectl create cm -h
+```
+
+Пример:
+
+```bash
+kubectl create cm config1 --from-literal=key1=value1 --from-literal=key2=value2
+```
+
+Результат `kubectl describe cm config1`:
+
+```
+Name:         config1
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+key1:
+----
+value1
+key2:
+----
+value2
+
+BinaryData
+====
+
+Events:  <none>
+```
+
+### Императивное создание **Secret**
+
+Пример:
+
+```bash
+kubectl create secret generic mysecret --from-literal=db-password=123 --from-literal=api-token=token
+```
+
+Результат `kubectl get secret mysecret -o yaml`:
+
+```yaml
+apiVersion: v1
+data:
+  api-token: dG9rZW4=
+  db-password: MTIz
+kind: Secret
+metadata:
+  creationTimestamp: "2022-06-05T13:03:35Z"
+  name: mysecret
+  namespace: default
+  resourceVersion: "57043"
+  uid: a7e1232d-c2ff-4105-97c8-b05fd6523cb8
+type: Opaque
+```
+
+Для **кодирования** (**не** шифрования) используется **Base64**.
 
 ### Проброс порта на хост
 
@@ -2473,7 +2543,7 @@ bar.txt
   Hello PV & PVC - Kubernetes
   ```
 
-#### ConfigMaps
+#### **ConfigMaps**
 
 Образы контейнеров должны поддерживать повторное использование.
 
@@ -2543,3 +2613,591 @@ nginx-conf         1      7s
 ```
 
 Для каждого **ConfigMap** можно сделать `describe`.
+
+##### Инъекция **ConfigMaps** в **поды**
+
+Общие способы это сделать:
+
+- переменные окружения
+- Volumes
+
+![](images/configmaps-and-envs.png)
+
+> `// TODO:`
+> - [ ] Поменять надпись на рисунке ("**поды**" -> "и **поды** через переменные 
+> окружения").
+
+- переменные окружения
+
+  **Недостаток**: Изменения, сделанные в **ConfigMap** не будут отражаться на 
+  контейнере.
+
+  В директории `microservices-yamls` существует конфигурация 
+  [`config-maps-envs.yml`](microservices-yamls/config-maps-envs.yml):
+
+  ```yaml
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: app-properties
+  data:
+    app-name: order
+    app-version: 1.0.0
+    team: engineering
+
+  ---
+
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: nginx-conf
+  data:
+    default.conf: |
+      server {
+        listen 80;
+        server_name localhost;
+
+        location / {
+          root /usr/share/nginx/html;
+          index index.html index.htm;
+        }
+
+        error_page 500 502 503 504 /50x.html;
+        location - /50x.html {
+          root /usr/share/nginx/html;
+        }
+
+        location /health {
+          access_log off;
+          return 200 "healthy\n";
+        }
+      }
+
+  ---
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: config-map
+  spec:
+    selector:
+      matchLabels:
+        app: config-map
+    template:
+      metadata:
+        labels:
+          app: config-map
+      spec:
+        containers:
+        - name: config-map
+          image: busybox
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          command:
+            - "/bin/sh"
+            - "-c"
+          args:
+            - "env & sleep 3600"
+          env:
+            - name: APP_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: app-properties
+                  key: app-version
+                  env:
+            - name: APP_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-properties
+                  key: app-name
+            - name: TEAM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-properties
+                  key: team
+  ```
+
+  Применим эту конфигурацию:
+
+  ```bash
+  kubectl apply -f config-maps-and-envs.yml
+  ```
+
+  Результат `kubectl get pods`:
+
+  ```diff
+  NAME                               READY   STATUS    RESTARTS       AGE
+  ...
+  + config-map-7568989b5f-9k5zz        1/1     Running   0              66s
+  ...
+  ```
+
+  Результат `kubectl logs config-map-7568989b5f-9k5zz`:
+
+  ```diff
+  ...
+  + TEAM=engineering
+  ...
+  + APP_NAME=order
+  ...
+  + APP_VERSION=1.0.0
+  ...
+  ```
+
+  > В директории `microservices-yamls` также существует конфигурация 
+  > [`config-maps-envs-nginx.yml`](microservices-yamls/config-maps-envs-nginx.yml) с 
+  > конфигурацией **nginx** в **ConfigMap**.
+
+- Volumes:
+
+  ![](images/configmaps-and-volumes.png)
+
+  В директории `microservices-yamls` существует конфигурация 
+  [`config-maps-volumes.yml`](microservices-yamls/config-maps-volumes.yml):
+
+  ```yaml
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: app-properties
+  data:
+    app-name: order
+    app-version: 1.0.0
+    team: engineering
+
+  ---
+
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: nginx-conf
+  data:
+    nginx.conf: |
+      server {
+        listen 80;
+        server_name localhost;
+
+        location / {
+          root /usr/share/nginx/html;
+          index index.html index.htm;
+        }
+
+        error_page 500 502 503 504 /50x.html;
+        location - /50x.html {
+          root /usr/share/nginx/html;
+        }
+
+        location /health {
+          access_log off;
+          return 200 "healthy\n";
+        }
+      }
+
+  ---
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: config-map
+  spec:
+    selector:
+      matchLabels:
+        app: config-map
+    template:
+      metadata:
+        labels:
+          app: config-map
+      spec:
+        volumes:
+          - name: nginx-conf
+            configMap:
+              name: nginx-conf
+          - name: app-properties
+            configMap:
+              name: app-properties
+        containers:
+        - name: config-map-volume
+          volumeMounts:
+            - mountPath: /etc/order/nginx
+              name: nginx-conf
+            - mountPath: /etc/order/properties
+              name: app-properties
+          image: busybox
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          command:
+            - "/bin/sh"
+            - "-c"
+          args:
+            - "env & sleep 3600"
+        - name: config-map-env
+          image: busybox
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          command:
+            - "/bin/sh"
+            - "-c"
+          args:
+            - "env & sleep 3600"
+          env:
+            - name: APP_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: app-properties
+                  key: app-version
+                  env:
+            - name: APP_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-properties
+                  key: app-name
+            - name: TEAM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-properties
+                  key: team
+            - name: NGINX_CONF
+              valueFrom:
+                configMapKeyRef:
+                  name: nginx-conf
+                  key: nginx.conf
+  ```
+
+  Применим эту конфигурацию:
+
+  ```bash
+  kubectl apply -f config-maps-volumes.yml
+  ```
+
+  Результат `kubectl get pods`:
+
+  ```diff
+  NAME                          READY   STATUS    RESTARTS   AGE
+  ...
+  + config-map-5596bc847d-kfmzn   2/2     Running   0          8m18s
+  ...
+  ```
+
+  Войдём в `sh`-оболочку:
+
+  ```bash
+  kubectl exec -it config-map-5596bc847d-kfmzn -c config-map-volume -- sh
+  ```
+
+  `cd /etc/order/`->`ls`:
+
+  ```
+  nginx       properties
+  ```
+
+  `cd properties`->`ls`:
+
+  ```
+  app-name     app-version  team
+  ```
+
+  `cat team`:
+
+  ```
+  engineering
+  ```
+
+- Volumes в одной директории
+
+  В директории `microservices-yamls` существует конфигурация 
+  [`config-maps-volumes-one-dir.yml`](microservices-yamls/config-maps-volumes-one-dir.yml):
+
+  ```yaml
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: app-properties
+  data:
+    app-name: order
+    app-version: 1.0.0
+    team: engineering
+
+  ---
+
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: nginx-conf
+  data:
+    nginx.conf: |
+      server {
+        listen 80;
+        server_name localhost;
+
+        location / {
+          root /usr/share/nginx/html;
+          index index.html index.htm;
+        }
+
+        error_page 500 502 503 504 /50x.html;
+        location - /50x.html {
+          root /usr/share/nginx/html;
+        }
+
+        location /health {
+          access_log off;
+          return 200 "healthy\n";
+        }
+      }
+
+  ---
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: config-map
+  spec:
+    selector:
+      matchLabels:
+        app: config-map
+    template:
+      metadata:
+        labels:
+          app: config-map
+      spec:
+        volumes:
+          - name: nginx-conf
+            configMap:
+              name: nginx-conf
+          - name: app-properties
+            configMap:
+              name: app-properties
+          - name: config
+            projected:
+              sources:
+                - configMap:
+                    name: nginx-conf
+                - configMap:
+                    name: app-properties
+        containers:
+        - name: config-map-volume
+          volumeMounts:
+            - mountPath: /etc/order/nginx
+              name: nginx-conf
+            - mountPath: /etc/order/properties
+              name: app-properties
+            - mountPath: /etc/order/config
+              name: config
+          image: busybox
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          command:
+            - "/bin/sh"
+            - "-c"
+          args:
+            - "env & sleep 3600"
+        - name: config-map-env
+          image: busybox
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          command:
+            - "/bin/sh"
+            - "-c"
+          args:
+            - "env & sleep 3600"
+          env:
+            - name: APP_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: app-properties
+                  key: app-version
+                  env:
+            - name: APP_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-properties
+                  key: app-name
+            - name: TEAM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-properties
+                  key: team
+            - name: NGINX_CONF
+              valueFrom:
+                configMapKeyRef:
+                  name: nginx-conf
+                  key: nginx.conf
+  ```
+
+  Применим эту конфигурацию:
+
+  ```bash
+  kubectl apply -f config-maps-volumes-one-dir.yml
+  ```
+
+  Результат `kubectl get pods`:
+
+  ```diff
+  NAME                          READY   STATUS    RESTARTS   AGE
+  ...
+  + config-map-5f755c6675-zxgg6   2/2     Running   0          44s
+  ...
+  ```
+
+  Зайдём в `sh`-оболочку контейнера `config-map-volume` с помощью команды 
+  `kubectl exec -it config-map-5f755c6675-zxgg6 -c config-map-volume -- sh` и 
+  выполним там следующую команду:
+
+  ```bash
+  cd /etc/order/config/
+  ```
+
+  Затем следующую:
+
+  ```
+  ls
+  ```
+
+  Результат:
+
+  ```
+  app-name     app-version  nginx.conf   team
+  ```
+
+#### **Secrets** (**Секреты**)
+
+**Secrets** хранят и управляют чувствительной (sensitive) информацией.
+
+> **ConfigMaps** используются только для хранения конфигурационных файлов. 
+> Чувствительная (sensitive) информация **не должна** храниться, используя 
+> **ConfigMaps**.
+
+> Но и не стоит хранить очень чувствительную (sensitive) информацию, такую как 
+> пароли БД и т.д. Для таких целей следует использовать инструменты вроде 
+> [Vault](https://www.vaultproject.io/).
+
+В директории `microservices-yamls` существует конфигурация 
+[`secrets.yml`](microservices-yamls/secrets.yml):
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secrets
+spec:
+  selector:
+    matchLabels:
+      app: secrets
+  template:
+    metadata:
+      labels:
+        app: secrets
+    spec:
+      volumes:
+        - name: secret-1
+          secret:
+            secretName: mysecret
+      containers:
+      - name: secrets
+        image: busybox
+        volumeMounts:
+          - mountPath: /etc/secrets
+            name: secret-1
+        env:
+          - name: SECRET
+            valueFrom:
+              secretKeyRef:
+                key: secret
+                name: mysecret-from-file
+        command:
+          - "sleep"
+          - "3600"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+```
+
+Применим эту конфигурацию:
+
+```bash
+kubectl apply -f secrets.yml
+```
+
+Результат `kubectl get pods`:
+
+```diff
+NAME                          READY   STATUS    RESTARTS   AGE
+...
++ secrets-5dd579b445-fxjp5      1/1     Running   0          22s
+...
+```
+
+Зайдём в `sh`-оболочку с помощью команды 
+`kubectl exec -it secrets-5dd579b445-fxjp5 -- sh` и выполним там следующие 
+команды:
+
+```bash
+env
+```
+
+Результат:
+
+```diff
+...
++ SECRET=another-secret
+...
+```
+
+Затем:
+
+```bash
+cd /etc/secrets/
+```
+
+```bash
+ls
+```
+
+Результат:
+
+```
+api-token    db-password
+```
+
+Результат `cat db-password`:
+
+```
+123
+```
+
+##### Типы **Secrets**
+
+[Types of Secret on Kubernetes website](https://kubernetes.io/docs/concepts/configuration/secret/#secret-types).
+
+##### Пуллинг приватного образа Docker
+
+Если пуллить приватный образ, например, с **Docker Hub**, можно в `kubectl get 
+pods` можно увидеть ошибку `ErrImagePull` в поле `STATUS`.
+
+Чтобы **Kubernetes** получил доступ, нужно создать следующий **Secret**:
+
+```bash
+kubectl create secret docker-registry docker-hub-private \
+--docker-username=<имя_пользователя> \
+--docker-password=<пароль> \
+--docker-email=<email> \
+```
+
+Далее в конфигурационный файл в `spec`->`template`->`spec` нужно добавить 
+следующее:
+
+```yaml
+imagePullSecrets:
+  - name: docker-hub-private
+```
