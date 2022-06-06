@@ -74,6 +74,7 @@
       - [Получение по Label selectors с помощью специального синтаксиса](#получение-по-label-selectors-с-помощью-специального-синтаксиса)
     - [Императивное создание **ConfigMap**](#императивное-создание-configmap)
     - [Императивное создание **Secret**](#императивное-создание-secret)
+    - [Императивное создание **Namespace**](#императивное-создание-namespace)
     - [Проброс порта на хост](#проброс-порта-на-хост)
     - [Удаление **пода**](#удаление-пода)
     - [Дебаг **подов**](#дебаг-подов)
@@ -111,9 +112,9 @@
       - [Аннотации](#аннотации)
       - [**Service Discovery** (**Обнаружение сервисов**)](#service-discovery-обнаружение-сервисов)
         - [Регистрация сервисов](#регистрация-сервисов)
-      - [Endpoints](#endpoints)
+      - [**Endpoints**](#endpoints)
       - [**KubeProxy**](#kubeproxy)
-      - [Storage (хранилища) и Volumes (тома)](#storage-хранилища-и-volumes-тома)
+      - [**Storage** (хранилища) и **Volumes** (тома)](#storage-хранилища-и-volumes-тома)
         - [Volume: EmptyDir](#volume-emptydir)
         - [Volume: HostPath](#volume-hostpath)
         - [Другие Volumes](#другие-volumes)
@@ -124,6 +125,15 @@
       - [**Secrets** (**Секреты**)](#secrets-секреты)
         - [Типы **Secrets**](#типы-secrets)
         - [Пуллинг приватного образа Docker](#пуллинг-приватного-образа-docker)
+      - [**Namespaces** (Неймспейсы)](#namespaces-неймспейсы)
+        - [Плагин **Kubectx**](#плагин-kubectx)
+        - [Межнеймспейсная коммуникация (Cross NS Communication)](#межнеймспейсная-коммуникация-cross-ns-communication)
+        - [Сетевые политики (Network Policies)](#сетевые-политики-network-policies)
+    - [Health Checks (Проверка здоровья)](#health-checks-проверка-здоровья)
+      - [Liveness Probe](#liveness-probe)
+      - [Readiness Probe](#readiness-probe)
+    - [Управление ресурсами](#управление-ресурсами)
+    - [**Jobs**](#jobs)
 
 ## Понятие кластера (Cluster)
 
@@ -706,6 +716,14 @@ type: Opaque
 ```
 
 Для **кодирования** (**не** шифрования) используется **Base64**.
+
+### Императивное создание **Namespace**
+
+Пример:
+
+```bash
+kubectl create ns engineering
+```
 
 ### Проброс порта на хост
 
@@ -2112,7 +2130,7 @@ kubectl get pods --show-labels
 > apt install dnsutils
 > ```
 
-#### Endpoints
+#### **Endpoints**
 
 ![](images/endpoints.png)
 
@@ -2137,7 +2155,7 @@ kubectl get pods --show-labels
 **KubeProxy** перенаправляет трафик к **подам**, которые совпадают по *Label 
 selectors*.
 
-#### Storage (хранилища) и Volumes (тома)
+#### **Storage** (хранилища) и **Volumes** (тома)
 
 Т.к. **поды** недолговечны и эфемерны, вся информация удаляется, когда 
 контейнер **пода** перезагружается.
@@ -3200,4 +3218,265 @@ kubectl create secret docker-registry docker-hub-private \
 ```yaml
 imagePullSecrets:
   - name: docker-hub-private
+```
+
+#### **Namespaces** (Неймспейсы)
+
+**Неймспейсы** используются для организации объектов в кластере, например, по:
+
+- команде (team)
+- отделу (department)
+- окружению (environment)
+- и т.д.
+
+По умолчанию, **Kubectl** взаимодействует с неймспейсом `default`.
+
+В директории `microservices-yamls` существует конфигурация 
+[`namespaces.yml`](microservices-yamls/namespaces.yml):
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: engineering
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tooling
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+```
+
+Применим эту конфигурацию:
+
+```bash
+kubectl apply -f namespaces.yml
+```
+
+> В директории `microservices-yamls/namespaced` лежат две 
+> *namespaced*-конфигурации `customer-deployment.yml` и `frontend.yml`.
+
+> Для манипуляций с *namespaced*-объектами в **Kubectl** необъодимо указывать 
+> аргумент `-n <название_неймспейса>`.
+
+##### Плагин **Kubectx**
+
+[Страница **Kubectx** на GitHub](https://github.com/ahmetb/kubectx).
+
+Команда `kubens` выводит список всех неймспейсов.
+
+`kubens <название_неймспейса>` переключает **Kubectl** на указанный неймспейс.
+
+`kubens -` переключает **Kubectl** на предыдущий неймспейс.
+
+##### Межнеймспейсная коммуникация (Cross NS Communication)
+
+![](images/cross-ns-communication.png)
+
+##### Сетевые политики (Network Policies)
+
+> `// TODO:`
+> - [ ] Описать сетевые политики.
+
+![](images/network-policies.png)
+
+### Health Checks (Проверка здоровья)
+
+**Kubernetes** использует проверку здоровья процесса. Она проверяет, живо ли 
+приложение. Если нет, то перезапускает процесс.
+
+Этого недостаточно. Мы можем использовать **Liveness Probe** и 
+**Readiness Probe**.
+
+#### Liveness Probe
+
+[Kubelet](#kubelet) использует Liveness Probe, чтобы знать, когда перезапускать 
+контейнер. Например, Liveness Probe может отловить Deadlock, ошибку 
+подключения к БД и т.д.
+
+В директории `microservices-yamls/health-checks` существует конфигурация 
+`liveness-probe.yml`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer
+  namespace: engineering
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: customer
+  template:
+    metadata:
+      labels:
+        app: customer
+    spec:
+      containers:
+      - name: customer
+        image: "amigoscode/kubernetes:customer-v1"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+          failureThreshold: 3
+          periodSeconds: 5
+        env:
+        - name: ORDER_SERVICE
+          value: "order"
+        - name: "KILL_IN_SECONDS"
+          value: "30"
+        ports:
+        - containerPort: 8080
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-node
+  namespace: engineering
+spec:
+  type: NodePort
+  selector:
+    app: customer
+  ports:
+  - port: 80
+    targetPort: 8080
+    nodePort: 30000
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer
+  namespace: engineering
+spec:
+  type: ClusterIP
+  selector:
+    app: customer
+  ports:
+  - port: 80
+    targetPort: 8080
+```
+
+Следует обратить внимание на `livenessProbe`.
+
+Здесь мы передаём переменную окружения `KILL_IN_SECONDS` для убивания процесса. 
+Liveness Probe будет восстанавливать процесс.
+
+Результат `kubectl get pods -w`:
+
+```
+NAME                       READY   STATUS    RESTARTS   AGE
+customer-68b898f56-68qhk   1/1     Running   0          12s
+customer-68b898f56-8c9g2   1/1     Running   0          12s
+customer-68b898f56-8c9g2   0/1     Error     0          34s
+customer-68b898f56-68qhk   0/1     Error     0          35s
+customer-68b898f56-8c9g2   1/1     Running   1 (1s ago)   35s
+customer-68b898f56-68qhk   1/1     Running   1 (2s ago)   36s
+customer-68b898f56-68qhk   0/1     Error     1 (32s ago)   66s
+customer-68b898f56-8c9g2   0/1     Error     1 (33s ago)   67s
+customer-68b898f56-8c9g2   0/1     CrashLoopBackOff   1 (4s ago)    70s
+customer-68b898f56-68qhk   0/1     CrashLoopBackOff   1 (4s ago)    70s
+customer-68b898f56-68qhk   1/1     Running            2 (16s ago)   82s
+customer-68b898f56-8c9g2   1/1     Running            2 (17s ago)   83s
+customer-68b898f56-68qhk   0/1     Error              2 (47s ago)   113s
+customer-68b898f56-8c9g2   0/1     Error              2 (47s ago)   113s
+customer-68b898f56-8c9g2   0/1     CrashLoopBackOff   2 (3s ago)    115s
+customer-68b898f56-68qhk   0/1     CrashLoopBackOff   2 (3s ago)    115s
+```
+
+#### Readiness Probe
+
+[Kubelet](#kubelet) использует Readiness Probe, чтобы знать, когда контейнер 
+будет готов начать принимать трафик.
+
+В директории `microservices-yamls/health-checks` существует конфигурация 
+`readiness-probe.yml`. Принцип похож на [Liveness Probe](#liveness-probe).
+
+### Управление ресурсами
+
+Иногда приложение может использовать много ресурсов (Память и CPU).
+
+Мы можем определить:
+
+- Минимальное количество ресурсов, которые необходимы контейнеру (REQUEST)
+- Максимальное количество ресурсов, которые может занимать контейнер (LIMIT)
+
+Пример:
+
+```yaml
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "500,"
+  limits:
+    memory: "512Mi"
+    cpu: "1000m"
+```
+
+CPU записывается в millicores (миллиядрах). 1 ядро = 1000 миллиядер.
+
+### **Jobs**
+
+Создадим **Job**, который будет симулировать бэкап БД.
+
+В директории `microservices-yamls` существует конфигурация `job.yml`:
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-backup-job
+spec:
+  ttlSecondsAfterFinished: 10 # Время на работу после завершения
+  template:
+    spec:
+      containers:
+      - name: backup
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args:
+          - "echo 'performing db backup' && sleep 20"
+      restartPolicy: Never
+```
+
+Результат `kubectl get pods -w`:
+
+```
+NAME                       READY   STATUS             RESTARTS         AGE
+db-backup-job-vnk5d        1/1     Running            0                23s
+db-backup-job-vnk5d        0/1     Completed          0                23s
+db-backup-job-vnk5d        0/1     Completed          0                23s
+```
+
+Результат `db-backup-job-vnk5ds db-backup-job-vnk5d`:
+
+```
+performing db backup
+```
+
+Результат `kubectl get jobs`:
+
+```
+NAME            COMPLETIONS   DURATION   AGE
+db-backup-job   1/1           23s        25s
 ```
