@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-properties
+data:
+  app-name: order
+  app-version: 1.0.0
+  team: engineering
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+data:
+  default.conf: |
+    server {
+      listen 80;
+      server_name localhost;
+
+      location / {
+        root /usr/share/nginx/html;
+        index index.html index.htm;
+      }
+
+      error_page 500 502 503 504 /50x.html;
+      location - /50x.html {
+        root /usr/share/nginx/html;
+      }
+
+      location /health {
+        access_log off;
+        return 200 "healthy\n";
+      }
+    }
