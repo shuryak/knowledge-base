@@ -16,17 +16,11 @@
 - Откаты
 - И многое другое
 
-## Источники
-
-- [Mastering Kubernetes. Master k8s from A to Z](https://amigoscode.com/p/kubernetes)
-
-> [GitHub-репозиторий видеокурса](https://github.com/amigoscode/kubernetes).
-
 ## Оглавление
 
 - [Kubernetes](#kubernetes)
-  - [Источники](#источники)
   - [Оглавление](#оглавление)
+  - [Источники](#источники)
   - [Понятие кластера (Cluster)](#понятие-кластера-cluster)
   - [Master-нода](#master-нода)
     - [Control Plane](#control-plane)
@@ -134,6 +128,12 @@
       - [Readiness Probe](#readiness-probe)
     - [Управление ресурсами](#управление-ресурсами)
     - [**Jobs**](#jobs)
+
+## Источники
+
+- [Mastering Kubernetes. Master k8s from A to Z](https://amigoscode.com/p/kubernetes)
+
+> [GitHub-репозиторий видеокурса](https://github.com/amigoscode/kubernetes).
 
 ## Понятие кластера (Cluster)
 

@@ -2,10 +2,6 @@
 
 **Docker** – инструмент для запуска приложений в изолированной среде.
 
-## Источники
-
-- [Docker Tutorial for Beginners by Amigoscode](https://www.youtube.com/watch?v=p28piYY_wv8)
-
 ## Оглавление
 
 [**Docker Compose**](docker-compose.md)
@@ -13,8 +9,8 @@
 **Docker**:
 
 - [Docker](#docker)
-  - [Источники](#источники)
   - [Оглавление](#оглавление)
+  - [Источники](#источники)
   - [Контейнеры и виртуальные машины](#контейнеры-и-виртуальные-машины)
   - [Docker Images (образы) и Docker Containers (контейнеры)](#docker-images-образы-и-docker-containers-контейнеры)
     - [Docker Images](#docker-images)
@@ -51,6 +47,10 @@
     - [Docker Inspect](#docker-inspect)
     - [Логи Docker (Docker logs)](#логи-docker-docker-logs)
     - [Доступ к Bash в контейнерах](#доступ-к-bash-в-контейнерах)
+
+## Источники
+
+- [Docker Tutorial for Beginners by Amigoscode](https://www.youtube.com/watch?v=p28piYY_wv8)
 
 ## Контейнеры и виртуальные машины
 
