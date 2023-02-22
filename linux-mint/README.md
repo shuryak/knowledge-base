@@ -25,6 +25,8 @@
     - [Стартовая страница](#стартовая-страница)
     - [Поисковые движки](#поисковые-движки)
     - [Цветовая схема](#цветовая-схема)
+  - [Яндекс Музыка через Web Apps](#яндекс-музыка-через-web-apps)
+    - [Добавление на рабочий стол](#добавление-на-рабочий-стол)
   - [Приложения для разработки и программирования](#приложения-для-разработки-и-программирования)
     - [build-essential (gcc, g++, ...)](#build-essential-gcc-g-)
     - [Go](#go)
@@ -39,7 +41,7 @@
 ## Alt + Shift для переключения раскладки клавиатуры
 
 `System Settings` -> `Keyboard` -> `Layouts` -> `Options...` ->
-`Switching to another layout` -> `Alt+Space`.
+`Switching to another layout` -> `Alt+Shift`.
 
 ## Обновление пакетов
 
@@ -354,6 +356,58 @@ sudo apt install chromium
 ### Цветовая схема
 
 Новая вкладка -> `Customize Chromium` -> `Color and theme`.
+
+## Яндекс Музыка через Web Apps
+
+```bash
+cd ~/Documents/
+```
+
+```bash
+touch chromium-center-screen.sh
+```
+
+Содержимое `chromium-center-screen.sh`:
+
+```bash
+#!/bin/bash
+
+WINDOW_WIDTH=$1
+WINDOW_HEIGHT=$2
+
+SCREEN_DIMENSIONS=$(xdpyinfo | grep -oP 'dimensions:\s+\K\S+')
+SCREEN_WIDTH=$(echo "$SCREEN_DIMENSIONS" | cut -d 'x' -f 1)
+SCREEN_HEIGHT=$(echo "$SCREEN_DIMENSIONS" | cut -d 'x' -f 2)
+
+echo --window-size=$((WINDOW_WIDTH)),$((WINDOW_HEIGHT)) --window-position=$((SCREEN_WIDTH / 2 - WINDOW_WIDTH / 2)),$((SCREEN_HEIGHT / 2 - WINDOW_HEIGHT / 2))
+```
+
+```bash
+chmod +x chromium-center-screen.sh
+```
+
+`Web Apps` -> `+`:
+
+- `Name` -> `Яндекс Музыка`
+- `Address` -> `https://music.yandex.ru/`
+- `Icon` устанавливается с помощью кнопки скачивания напротив `Address`
+- `Category` -> `Sound & Video`
+- `Custom parameters` -> `$(~/Documents/chromium-center-screen.sh 800 600)`
+- `Browser` -> `Chromium`
+- [x] `Isolated Profile`
+- [ ] `Private/Incognito Window`
+
+### Добавление на рабочий стол
+
+При добавлении веб-приложения Яндекс Музыки на рабочий стол скрипт
+`chromium-center-screen.sh` не будет работать и окно будет открываться не по
+центру. Чтобы решить эту проблему, нужно нажать ПКМ по ярлыку на рабочем столе,
+поместить всё в `Command` в кавычки и перед кавычками добавить `bash -c`, чтобы
+команды выглядела следующим образом:
+
+```bash
+bash -c "chromium --app="http://music.yandex.ru" --class=... --user-data-dir=... $(~/Documents/chromium-center-screen.sh 800 600)"
+```
 
 ## Приложения для разработки и программирования
 
