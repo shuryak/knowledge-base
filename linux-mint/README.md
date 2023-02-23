@@ -11,7 +11,8 @@
     - [SSH-ключи](#ssh-ключи)
     - [GPG-ключи](#gpg-ключи)
   - [Настройка терминала и оболочки zsh](#настройка-терминала-и-оболочки-zsh)
-  - [Настройка панели](#настройка-панели)
+  - [Настройки мыши и тачпада](#настройки-мыши-и-тачпада)
+  - [Настройки панели](#настройки-панели)
     - [Transparent panels](#transparent-panels)
   - [Установка flameshot](#установка-flameshot)
   - [Настройка рабочего стола](#настройка-рабочего-стола)
@@ -19,6 +20,7 @@
   - [Настройка темы Cinnamon](#настройка-темы-cinnamon)
   - [Установка драйвера видеокарты Nvidia](#установка-драйвера-видеокарты-nvidia)
   - [Разрешение и установка snapd](#разрешение-и-установка-snapd)
+  - [Установка Telegram](#установка-telegram)
   - [Установка и настройка Chromium](#установка-и-настройка-chromium)
     - [Установка браузером по умолчанию](#установка-браузером-по-умолчанию)
     - [Внешний вид](#внешний-вид)
@@ -34,6 +36,10 @@
       - [Установка](#установка)
       - [Must-have плагины](#must-have-плагины)
       - [`settings.json`](#settingsjson)
+    - [JetBrains IDE](#jetbrains-ide)
+      - [JetBrains ToolBox](#jetbrains-toolbox)
+      - [Плагины](#плагины)
+      - [Настройки](#настройки)
   - [Установка wine](#установка-wine)
   - [Установить и забыть](#установить-и-забыть)
     - [Midnight Commander](#midnight-commander)
@@ -172,7 +178,12 @@ nano ~/.zshrc
 
 - [ ] `Show menubar by default in new terminals`
 
-## Настройка панели
+## Настройки мыши и тачпада
+
+`System Settings` -> `Mouse and Touchpad` -> `Touchpad` -> `Touchpad is` ->
+`Disable when a mouse is attached`.
+
+## Настройки панели
 
 ПКМ по панели -> `Panel edit mode` -> ПКМ по `Grouped window list` ->
 `Configure...` -> `General`:
@@ -312,6 +323,12 @@ sudo apt update
 sudo apt install snapd
 ```
 
+## Установка Telegram
+
+```bash
+sudo apt install telegram-desktop
+```
+
 ## Установка и настройка Chromium
 
 ```bash
@@ -396,6 +413,9 @@ chmod +x chromium-center-screen.sh
 - `Browser` -> `Chromium`
 - [x] `Isolated Profile`
 - [ ] `Private/Incognito Window`
+
+> Скрипт `chromium-center-screen.sh` можно вызвать с произвольным разрешением
+> окна Яндекс Музыки.
 
 ### Добавление на рабочий стол
 
@@ -514,7 +534,7 @@ sudo apt install code
 {
   "editor.fontFamily": "JetBrains Mono",
   "editor.fontSize": 16,
-  "editor.fontWeight": 600,
+  "editor.fontWeight": 700,
   "editor.minimap.enabled": false,
   "editor.rulers": [80, 120],
   "editor.wordWrap": "off",
@@ -530,6 +550,58 @@ sudo apt install code
   "security.workspace.trust.untrustedFiles": "open",
 }
 ```
+
+### JetBrains IDE
+
+Для установки JetBrains IDE я рекомендую использовать
+[JetBrains ToolBox](https://www.jetbrains.com/toolbox-app/) или
+[Snap-пакеты](https://snapcraft.io/search?q=jetbrains).
+
+#### JetBrains ToolBox
+
+Скачиваем `.tar.gz` на странице
+[JetBrains ToolBox](https://www.jetbrains.com/toolbox-app/). Распаковываем файл
+`jetbrains-toolbox`.
+
+Выполняем следующую команду для добавления `jetbrains-toolbox` в PATH:
+
+```bash
+mv jetbrains-toolbox /usr/local/bin
+```
+
+С помощью JetBrains ToolBox устанавливаем необходимую IDE.
+
+#### Плагины
+
+`File` -> `Settings...` -> `Plugins` -> `Marketplace`:
+
+| Логотип                                                                                                                                  | Ссылка                                                                                                            |
+|------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
+| <img src="https://plugins.jetbrains.com/files/10044/295011/icon/pluginIcon.svg" alt="Atom Material Icons" width="50" height="50">        | **[Atom Material Icons](https://plugins.jetbrains.com/plugin/10044-atom-material-icons)**                         |
+| <img src="https://plugins.jetbrains.com/files/16604/260991/icon/pluginIcon.svg" alt="Atom Material Icons" width="50" height="50">        | **[Extra ToolWindow Colorful Icons](https://plugins.jetbrains.com/plugin/16604-extra-toolwindow-colorful-icons)** |
+| <img src="https://plugins.jetbrains.com/files/15418/216093/icon/pluginIcon.svg" alt="Atom Material Icons" width="50" height="50">        | **[GitHub Theme](https://plugins.jetbrains.com/plugin/15418-github-theme)**                                       |
+| <img src="https://plugins.jetbrains.com/files/13308/260176/icon/pluginIcon.svg" alt="Atom Material Icons" width="50" height="50">        | **[Indent Rainbow](https://plugins.jetbrains.com/plugin/13308-indent-rainbow)**                                   |
+| <img src="https://plugins.jetbrains.com/files/8575/73820/icon/META-INF_pluginIcon.svg" alt="Atom Material Icons" width="50" height="50"> | **[Nyan Progress Bar](https://plugins.jetbrains.com/plugin/8575-nyan-progress-bar)**                              |
+| <img src="https://plugins.jetbrains.com/files/10080/288097/icon/pluginIcon.svg" alt="Atom Material Icons" width="50" height="50">        | **[Rainbow Brackets](https://plugins.jetbrains.com/plugin/10080-rainbow-brackets)**                               |
+
+#### Настройки
+
+`File` -> `Settings...`:
+
+- `Appearance & Behavior` -> `Appearance` -> `Theme` ->
+  **`GitHub Dark High Contrast`**;
+- `Appearance & Behavior` -> `Appearance` -> `Font` -> `Inter Semi Bold`;
+  
+  ... -> `Size` -> **`14`**;
+- `Appearance & Behavior` -> `Appearance` -> `Antialiasing` -> `IDE` ->
+  **`Greyscale`**
+
+  ... -> `Editor` -> **`Greyscale`**;
+- [x] `Editor` -> `General` -> `Ensure every saved file ends with a line break`;
+- `Editor` -> `Font`:
+
+  ![Рекомендуемые параметры шрифта редактора JetBrains IDE](images/jetbrains-editor-font.png)
+- `Editor` -> `Color Scheme` -> `Scheme` -> **`GitHub Dark High Contrast`**.
 
 ## Установка wine
 
