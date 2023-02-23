@@ -32,6 +32,12 @@
   - [Приложения для разработки и программирования](#приложения-для-разработки-и-программирования)
     - [build-essential (gcc, g++, ...)](#build-essential-gcc-g-)
     - [Go](#go)
+    - [Docker](#docker)
+      - [Docker Engine](#docker-engine)
+      - [Docker Compose как `docker-compose`](#docker-compose-как-docker-compose)
+      - [Скрипт авто-дополнения для `docker-compose`](#скрипт-авто-дополнения-для-docker-compose)
+        - [Для Bash](#для-bash)
+        - [Для Zsh](#для-zsh)
     - [Visual Studio Code](#visual-studio-code)
       - [Установка](#установка)
       - [Must-have плагины](#must-have-плагины)
@@ -488,6 +494,112 @@ gvm uninstall go1.4
 
 ```bash
 gvm use go1.17.13 --default
+```
+
+### Docker
+
+#### Docker Engine
+
+```bash
+sudo apt update
+```
+
+```bash
+sudo apt -y install apt-transport-https ca-certificates curl software-properties-common
+```
+
+Удаляем Docker и т.п., если ранее были установлены:
+
+```bash
+sudo apt -y remove docker docker-engine docker.io containerd runc
+```
+
+```bash
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+```
+
+```bash
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu jammy stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+```
+
+```bash
+sudo apt update
+```
+
+```bash
+sudo apt install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+```
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+```bash
+newgrp docker
+```
+
+Проверяем версию Docker:
+
+```bash
+docker version
+```
+
+#### Docker Compose как `docker-compose`
+
+```bash
+curl -s https://api.github.com/repos/docker/compose/releases/latest | grep browser_download_url  | grep docker-compose-linux-x86_64 | cut -d '"' -f 4 | wget -qi -
+```
+
+```bash
+chmod +x docker-compose-linux-x86_64
+```
+
+```bash
+sudo mv docker-compose-linux-x86_64 /usr/local/bin/docker-compose
+```
+
+Проверяем версию Docker Compose:
+
+```bash
+docker-compose version
+```
+
+#### Скрипт авто-дополнения для `docker-compose`
+
+##### Для Bash
+
+```bash
+sudo curl -L https://raw.githubusercontent.com/docker/compose/master/contrib/completion/bash/docker-compose -o /etc/bash_completion.d/docker-compose
+```
+
+```bash
+source /etc/bash_completion.d/docker-compose
+```
+
+##### Для Zsh
+
+```bash
+mkdir -p ~/.zsh/completion
+```
+
+```bash
+curl -L https://raw.githubusercontent.com/docker/compose/master/contrib/completion/zsh/_docker-compose > ~/.zsh/completion/_docker-compose
+```
+
+Далее необходимо добавить следующие две строчки в `~/.zshrc`:
+
+```bash
+fpath=(~/.zsh/completion $fpath)
+```
+
+```bash
+autoload -Uz compinit && compinit -i
+```
+
+Затем следует перезагрузить оболочку:
+
+```bash
+exec $SHELL -l
 ```
 
 ### Visual Studio Code
