@@ -17,6 +17,8 @@
   - [Установка flameshot](#установка-flameshot)
   - [Настройка рабочего стола](#настройка-рабочего-стола)
   - [Рекомендуемые шрифты и их использование](#рекомендуемые-шрифты-и-их-использование)
+    - [Apple Color Emoji](#apple-color-emoji)
+      - [Apple Color Emoji в Firefox](#apple-color-emoji-в-firefox)
   - [Настройка темы Cinnamon](#настройка-темы-cinnamon)
   - [Установка драйвера видеокарты Nvidia](#установка-драйвера-видеокарты-nvidia)
   - [Настройка Qt](#настройка-qt)
@@ -312,6 +314,41 @@ sudo fc-cache -f -v
 `System Settings` -> `Font Selection`:
 
 ![Рекомендуемые параметры Font Selection](images/font-selection.png)
+
+### Apple Color Emoji
+
+Сначала необходимо установить `.ttf`-файл со шрифтом:
+[Installing prebuilt Apple Color Emoji font](https://github.com/samuelngs/apple-emoji-linux#installing-prebuilt-applecoloremoji-font).
+
+Далее нужно создать файл `fonts.conf` в `~/.config/fontconfig` со следующим
+содержимым:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+    <alias binding="strong">
+        <family>emoji</family>
+        <default><family>Apple Color Emoji</family></default>
+    </alias>
+    <alias binding="strong">
+        <family>Noto Color Emoji</family>
+        <prefer><family>Apple Color Emoji</family></prefer>
+    </alias>
+    <alias binding="strong">
+        <family>Segoe UI Emoji</family>
+        <prefer><family>Apple Color Emoji</family></prefer>
+    </alias>
+    <alias binding="strong">
+        <family>Emoji One</family>
+        <prefer><family>Apple Color Emoji</family></prefer>
+    </alias>
+</fontconfig>
+```
+
+#### Apple Color Emoji в Firefox
+
+`about:config` -> `font.name-list.emoji` -> `Apple Color Emoji`.
 
 ## Настройка темы Cinnamon
 
