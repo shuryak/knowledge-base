@@ -1,4 +1,4 @@
-package cache_warming
+package main
 
 import (
 	"fmt"

@@ -1,4 +1,4 @@
-package cache_warming_with_pool
+package main
 
 import (
 	"fmt"
