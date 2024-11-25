@@ -1,5 +1,9 @@
 {
+  "markdown.math.enabled": false,
+  "markdown.extension.math.enabled": false,
+  "mdmath.macros": {
     "\\uptheta": "\\theta",
     "\\upmu": "\\mu",
     "\\arc": "\\overset{\\smash{\\scriptscriptstyle\\frown}}"
+  }
 }

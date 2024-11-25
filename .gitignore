@@ -48,6 +48,7 @@ Temporary Items
 
 ### Visual Studio Code ###
 .vscode/
+!rand-num-gens/.vscode/
 
 # Local History for Visual Studio Code
 .history/

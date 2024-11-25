@@ -1,0 +1,5 @@
+parser: markdown
+printWidth: 80
+proseWrap: always
+tabWidth: 2
+useTabs: false
