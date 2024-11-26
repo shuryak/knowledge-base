@@ -9,6 +9,16 @@
 - [Markdown Preview Github Styling](https://marketplace.visualstudio.com/items?itemName=bierner.markdown-preview-github-styles)
 - [Markdown+Math](https://marketplace.visualstudio.com/items?itemName=goessner.mdmath)
 
+Для корректного отображения математических формул нужно открыть директорию
+`rand-num-gens` в Visual Studio Code:
+
+<table><tbody><tr>
+<td><details style="cursor: pointer"><summary>Открытие директории <code>rand-num-gens</code></summary>
+  <img src="images/readme-open-folder-1.png" alt="Открытие rand-num-gens. Шаг №1" width="400">
+  <img src="images/readme-open-folder-2.png" alt="Открытие rand-num-gens. Шаг №2" width="400">
+</details></td>
+</tr></tbody></table>
+
 ## Содержание
 
 - [Ответ на вопрос №1](./question-1.md)
