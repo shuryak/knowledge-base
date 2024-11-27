@@ -7,9 +7,9 @@ $X_i = \left(b - a\right) \cdot U_i + a$.
 
 Функция распределения $X_i$:
 
-$F_{X_i}\left(x\right) = \mathrm{P}\left(X_i < x\right) = \mathrm{P}\left(\left(b - a\right) \cdot U_i + a < x\right) = \mathrm{P}\left(U_i < \dfrac{x-a}{b-a}\right) = \mathrm{U_0}\left(\dfrac{x-a}{b-a}\right) = \dfrac{x-a}{b-a}$.
+$F_{X_i}\left(x\right) = \mathrm{P}\left(X_i < x\right) = \mathrm{P}\left(\left(b - a\right) \cdot U_i + a < x\right) = \mathrm{P}\left(U_i < \dfrac{x-a}{b-a}\right) = \mathrm{U}_0\left(\dfrac{x-a}{b-a}\right) = \dfrac{x-a}{b-a}$.
 
-> $\mathrm{U_0}$ — это функция распределения равномерно распределённой на
+> $\mathrm{U}_0$ — это функция распределения равномерно распределённой на
 > интервале $\left[0, \, 1\right)$ случайной величины $U_i$
 
 Последнее равенство выполняется при $0 \leqslant \dfrac{x-a}{b-a} < 1$. Это
