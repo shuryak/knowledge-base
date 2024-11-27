@@ -10,10 +10,10 @@ $$p\left(x\right) = \varphi\left(x\right) = \dfrac{1}{\sqrt{2 \cdot \pi}} \cdot 
 Интегральная функция распределения вероятностей нормированного нормального
 закона имеет вид:
 
-$$F\left(x\right) = \mathrm{N_0}\left(x\right) = \dfrac{1}{\sqrt{2 \cdot \pi}} \cdot \int\limits_{-\infty}^x e^{-\dfrac{t^2}{2}} \, dt = \dfrac{1}{2} + \Phi\left(x\right)$$
+$$F\left(x\right) = \mathrm{N_0}\left(x\right) = \dfrac{1}{\sqrt{2 \cdot \pi}} \cdot \int\limits_{-\infty}^x e^{-\dfrac{t^2}{2}} \, \mathrm{d}t = \dfrac{1}{2} + \Phi\left(x\right)$$
 
 , где
-$\Phi\left(x\right) = \dfrac{1}{\sqrt{2 \cdot \pi}} \cdot \int\limits_{0}^x e^{-\dfrac{t^2}{2}} \, dt$
+$\Phi\left(x\right) = \dfrac{1}{\sqrt{2 \cdot \pi}} \cdot \int\limits_{0}^x e^{-\dfrac{t^2}{2}} \, \mathrm{d}t$
 — интегральная функция Лапласа.
 
 Математическое ожидание нормированной нормальной случайной величины —
