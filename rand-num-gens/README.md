@@ -10,7 +10,7 @@
 - [Markdown+Math](https://marketplace.visualstudio.com/items?itemName=goessner.mdmath)
 
 Для корректного отображения математических формул нужно открыть директорию
-`rand-num-gens` в Visual Studio Code:
+`rand-num-gens` как корневую в Visual Studio Code:
 
 <table><tbody><tr>
 <td><details style="cursor: pointer"><summary>Открытие директории <code>rand-num-gens</code></summary>
@@ -40,3 +40,4 @@
 - [Ответ на вопрос №17](./question-17.md)
 - [Ответ на вопрос №18](./question-18.md)
 - [Ответ на вопрос №19](./question-19.md)
+- [Ответ на вопрос №20](./question-20.md)
