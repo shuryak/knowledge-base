@@ -30,7 +30,7 @@ $\left\{Y_j\right\}$, одинаково распределённых по по�
 
 Зная [алгоритм генерации показательного закона](./question-15.md), получаем:
 
-$\sum\limits_{j=1}^{i} Y_j \leqslant 1 \Leftrightarrow \sum\limits_{j=1}^{i} - \dfrac{1}{\lambda} \ln{U_j} \leqslant 1 \Leftrightarrow \left(\ln{U_1} + \ldots + \ln{U_i}\right) \geqslant - \lambda \Leftrightarrow \ln{U_1 \cdot \ldots \cdot \ln{U_i}} \geqslant -\lambda \Leftrightarrow U_1 \cdot \ldots \cdot U_i \geqslant e^{-\lambda}$
+$\sum\limits_{j=1}^{i} Y_j \leqslant 1 \Leftrightarrow \sum\limits_{j=1}^{i} - \dfrac{1}{\lambda} \ln{U_j} \leqslant 1 \Leftrightarrow \left(\ln{U_1} + \ldots + \ln{U_i}\right) \geqslant - \lambda \Leftrightarrow \ln{U_1 \cdot \ldots \cdot U_i} \geqslant -\lambda \Leftrightarrow U_1 \cdot \ldots \cdot U_i \geqslant e^{-\lambda}$
 
 В соответствии с последним соотношением алгоритм генерации случайной величины,
 распределённой по закону Пуассона, следующий:

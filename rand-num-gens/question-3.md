@@ -1,8 +1,8 @@
 # Вопрос №3. Метод обращения для генерации непрерывной случайной величины
 
 Пусть плотность распределения вероятности непрерывной случайной величины $X$
-задаётся функцией $p_x\left(x\right)$, а функция распределения вероятностей
-$F_X\left(x\right) = \int\limits_{-\infty}^x p_x\left(x\right) \, \mathrm{d}x$.
+задаётся функцией $p_X\left(x\right)$, а функция распределения вероятностей
+$F_X\left(x\right) = \int\limits_{-\infty}^x p_X\left(x\right) \, \mathrm{d}x$.
 
 Метод обращения для генерации случайной величины $X$ базируется на следующем
 утверждении:
@@ -15,7 +15,7 @@ $F_X\left(x\right) = \int\limits_{-\infty}^x p_x\left(x\right) \, \mathrm{d}x$.
 > Действительно, так как функция распределения вероятности любой случайной
 > величины является неубывающей, то
 >
-> $F_{\arc{X}} \overset{\mathrm{def}}{=} \mathrm{P}\left(\arc{X} < x\right) = \mathrm{P}\left(F_X^{-1}\left(U\right) < x\right) = \mathrm{P}\left(U < F_X\left(x\right)\right) = U_0\left(F_X\left(x\right)\right) = F_X\left(x\right)$.
+> $F_{\arc{X}} \left(x\right) \overset{\mathrm{def}}{=} \mathrm{P}\left(\arc{X} < x\right) = \mathrm{P}\left(F_X^{-1}\left(U\right) < x\right) = \mathrm{P}\left(U < F_X\left(x\right)\right) = U_0\left(F_X\left(x\right)\right) = F_X\left(x\right)$.
 
 Функция распределения $F_X\left(x\right)$ непрерывной случайной величины:
 

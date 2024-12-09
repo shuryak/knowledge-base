@@ -17,7 +17,7 @@ $D\left(X\right) = \dfrac{q}{p^2}$.
 
 > Действительно,
 >
-> $M\left(X\right) = \sum\limits_{k = 0}^{\infty} k \cdot q^k \cdot p = p \cdot q \cdot \sum\limits_{k = 1}^{\infty} k \cdot q^{k-1} = p \cdot q \cdot \left(\sum\limits_{k = 1}^{\infty} q^k\right)' = p \cdot q \cdot \left(\dfrac{q}{1-p}\right)' = \dfrac{p \cdot q}{\left(1-q\right)^2} = \dfrac{q}{p}$.
+> $M\left(X\right) = \sum\limits_{k = 0}^{\infty} k \cdot q^k \cdot p = p \cdot q \cdot \sum\limits_{k = 1}^{\infty} k \cdot q^{k-1} = p \cdot q \cdot \left(\sum\limits_{k = 1}^{\infty} q^k\right)' = p \cdot q \cdot \left(\dfrac{q}{1-q}\right)' = \dfrac{p \cdot q}{\left(1-q\right)^2} = \dfrac{q}{p}$.
 >
 > (использован факт, что $\left(q^k\right)' = k \cdot q^{k-1}$).
 >
@@ -37,7 +37,7 @@ $D\left(X\right) = \dfrac{q}{p^2}$.
    $U_1, U_2, \ldots, U_n$, равномерно распределённых в интервале
    $\left[0, \, 1\right)$.
 2. Требуемая целочисленная последовательность $X_1, X_2, \ldots, X_n$ получается
-   как наибольшее целое число из частного натурального логарифма каждого $U_i$ и
+   как наибольшее целое из частного натурального логарифма каждого $U_i$ и
    натурального логарифма $q$ без единицы:
    $X_i = \left\lceil \dfrac{\ln{U_i}}{\ln{q}} \right\rceil - 1$.
 
